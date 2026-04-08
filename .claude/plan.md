@@ -152,7 +152,7 @@ Example: DP problems with 60% failure rate → a DP problem due in 10 days gets 
 ## Build Order
 
 1. Update `CLAUDE.md` and `README.md` ✅
-2. Init Next.js + Drizzle + Neon + Tailwind
+2. Init Next.js + Drizzle + Neon + Tailwind ✅
 3. Write DB schema, run first migration
 4. Build alfa-leetcode-api client (`lib/leetcode/client.ts`)
 5. Build `/api/sync` to seed DB

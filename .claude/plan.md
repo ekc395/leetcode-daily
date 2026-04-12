@@ -154,7 +154,7 @@ Example: DP problems with 60% failure rate → a DP problem due in 10 days gets 
 1. Update `CLAUDE.md` and `README.md` ✅
 2. Init Next.js + Drizzle + Neon + Tailwind ✅
 3. Write DB schema, run first migration ✅
-4. Build alfa-leetcode-api client (`lib/leetcode/client.ts`)
+4. Build alfa-leetcode-api client (`lib/leetcode/client.ts`) ✅
 5. Build `/api/sync` to seed DB
 6. Implement SR algorithm (`lib/scheduler/algorithm.ts`)
 7. Build queue + attempt + stats API routes

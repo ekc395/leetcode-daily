@@ -21,6 +21,7 @@ export async function POST(request: Request) {
         });
         for (const s of unique) {
             const problemDetail = await getProblemDetail(s.titleSlug);
+            // Upsert into problems table
             const [problem] = await db.insert(problems).values({
                 slug: problemDetail.titleSlug,
                 title: problemDetail.title,
@@ -36,9 +37,17 @@ export async function POST(request: Request) {
                 },
             })
             .returning();
+            // Upsert into schedule table if problemId doesn't exist
+            await db.insert(schedule).values({
+                problemId: problem.id,
+                nextReviewAt: new Date().toISOString().split("T")[0], // today
+                intervalDays: 1,
+                easeFactor: 2.5,
+            })
+            .onConflictDoNothing();
         }
         return Response.json({ synced: unique.length }); 
     } catch (error) {
-        return Response.json({ error: "Failed to fetch problem details" }, { status: 500 });
+        return Response.json({ error: "Sync failed" }, { status: 500 });
     }
 }

@@ -155,50 +155,7 @@ Example: DP problems with 60% failure rate → a DP problem due in 10 days gets 
 2. Init Next.js + Drizzle + Neon + Tailwind ✅
 3. Write DB schema, run first migration ✅
 4. Build alfa-leetcode-api client (`lib/leetcode/client.ts`) ✅
-5. Build `/api/sync` to seed DB
-
-Here's what /api/sync needs to do, step by step:                                                                                                                                  
-                              
-  Create app/api/sync/route.ts and export a POST handler.                                                                                                                           
-                                                                                                                                                                                    
-  ---                                                                                                                                                                               
-  1. Get the username from env                                                                                                                                                      
-                                                                                                                                                                                    
-  Read process.env.LEETCODE_USERNAME — this is who you're syncing for. Fail early with a 500 if it's not set.
-                                                                                                                                                                                    
-  ---
-  2. Fetch accepted submissions                                                                                                                                                     
-                               
-  Call getAcceptedSubmissions(username) from your client. This gives you a list of AcSubmission[] — every problem the user has solved on LeetCode.
-                                                                                                                                                                                    
-  ---
-  3. For each submission, fetch problem details and upsert into problems                                                                                                            
-                                                                                                                                                                                    
-  For each item in the submissions list:
-  - Call getProblemDetail(titleSlug) to get title, difficulty, and tags                                                                                                             
-  - Upsert into the problems table using the slug as the unique key — insert if new, update if it already exists (Drizzle has .onConflictDoUpdate() for this)
-  - Extract the tag names from topicTags into a plain string[] for the tags jsonb column                                                                                            
-                                                                                                                                                                                    
-  ---                                                                                                                                                                               
-  4. For each problem, upsert into schedule if no row exists                                                                                                                        
-                                                                                                                                                                                    
-  After upserting the problem and getting its id:                                                                                                                                 
-  - Check if a schedule row already exists for that problem_id                                                                                                                      
-  - If not, insert one with next_review_at = today, interval_days = 1, ease_factor = 2.5 (the SR defaults)                                                                          
-  - If one already exists, don't touch it — you don't want to reset the schedule on re-sync                                                                                         
-                                                                                                                                                                                    
-  ---                                                                                                                                                                               
-  5. Return a summary response                                                                                                                                                      
-                                                                                                                                                                                    
-  Return a JSON response like { synced: N } where N is the number of problems processed, so you can confirm it worked.                                                            
-                                                                                                                                                                                    
-  ---                                                                                                                                                                             
-  Key things to be careful about:                                                                                                                                                   
-                                                                                                                                                                                    
-  - The submissions list may contain duplicates (same problem, multiple submissions) — deduplicate by titleSlug before processing
-  - Wrap the whole thing in a try/catch and return a 500 with the error message on failure                                                                                          
-  - getProblemDetail is one HTTP call per problem — if you have many submissions, these will run sequentially unless you batch them (for now sequential is fine)
-
+5. Build `/api/sync` to seed DB ✅
 6. Implement SR algorithm (`lib/scheduler/algorithm.ts`)
 7. Build queue + attempt + stats API routes
 8. Set up Nodemailer Gmail SMTP (`lib/email/`)

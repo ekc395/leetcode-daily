@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import { problems, attempts } from "@/lib/db/schema";
 import { inArray } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 
 const SM2_PASS_THRESHOLD = 3;       // recall_rating >= this counts as a success
 const SM2_EASE_BONUS = 0.1;         // base ease factor bonus per review
@@ -26,4 +27,16 @@ export async function computeNextSchedule(problemId: number, tags: string[], cur
     } else {
         sm2Interval = Math.round(currentIntervalDays * newEaseFactor);
     }
+    // Topic weakness modifier
+    const taggedProblems = await db.select({
+        id: problems.id, 
+        tags: problems.tags
+    })
+    .from(problems);
+    const relatedProblemIds = taggedProblems.filter(p => p.tags.some(t => tags.includes(t))).map(p => p.id);
+    const relatedAttempts = await db.select({
+        problemId: attempts.problemId,
+        recallRating: attempts.recallRating
+    })
+    .from(attempts).where(inArray(attempts.problemId, relatedProblemIds));
 }

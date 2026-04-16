@@ -1,7 +1,6 @@
 import { db } from "@/lib/db";
 import { problems, attempts } from "@/lib/db/schema";
-import { inArray } from "drizzle-orm";
-import { eq, sql } from "drizzle-orm";
+import { inArray, eq, sql } from "drizzle-orm";
 
 const SM2_PASS_THRESHOLD = 3;       // recall_rating >= this counts as a success
 const SM2_EASE_BONUS = 0.1;         // base ease factor bonus per review
@@ -39,4 +38,14 @@ export async function computeNextSchedule(problemId: number, tags: string[], cur
         recallRating: attempts.recallRating
     })
     .from(attempts).where(inArray(attempts.problemId, relatedProblemIds));
+    // Per-tag weakness scores
+    const weaknessByTag: Record<string, { failures: number; total: number }> = {};
+    for (const tag of tags) {
+        const tagProblemIds = new Set(taggedProblems.filter(p => p.tags.includes(tag)).map(p => p.id));
+        const tagAttempts = relatedAttempts.filter(a => tagProblemIds.has(a.problemId));
+        const failures = tagAttempts.filter(a => a.recallRating < SM2_PASS_THRESHOLD).length;
+        weaknessByTag[tag] = { failures, total: tagAttempts.length };
+    }
+    const weaknessScores = Object.values(weaknessByTag).filter(w => w.total > 0).map(w => w.failures / w.total);
+    const avgWeakness = weaknessScores.length > 0 ? weaknessScores.reduce((a, b) => a + b, 0) / weaknessScores.length : 0;
 }

@@ -38,9 +38,11 @@ export async function POST(request: Request) {
             })
             .returning();
             // Upsert into schedule table if problemId doesn't exist
+            const tomorrow = new Date();
+            tomorrow.setDate(tomorrow.getDate() + 1);
             await db.insert(schedule).values({
                 problemId: problem.id,
-                nextReviewAt: new Date().toISOString().split("T")[0], // today
+                nextReviewAt: tomorrow.toISOString().split("T")[0],
                 intervalDays: 1,
                 easeFactor: 2.5,
             })

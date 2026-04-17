@@ -65,16 +65,39 @@ Personal LeetCode spaced repetition tool to resurface problems at the right time
 
 ---
 
+## Problem Pool
+
+Two types of problems coexist in the `problems` table:
+
+| Type | Source | Schedule row on entry |
+|---|---|---|
+| **Solved** | `/api/sync` (LeetCode accepted submissions) | `interval_days = 1`, `ease_factor = 2.5`, `next_review_at = tomorrow` |
+| **Unseeded** | `/api/seed` (full LeetCode problem bank) | No schedule row until assigned by queue |
+
+---
+
 ## Daily Queue Logic
 
 **One problem per day. No new problem until the current one is rated.**
 
 `GET /api/queue` priority:
 
-1. If any problem has `next_review_at <= today` and no attempt logged today → surface that problem. No new problems until it's done.
-2. If nothing pending → pick the problem with earliest `next_review_at <= today` by SR priority.
+1. **Incomplete review** — problem with `next_review_at <= today` and no attempt logged today → surface it, blocks everything else
+2. **SR due** — earliest `next_review_at <= today` from scheduled problems
+3. **New problem** — pick unseeded problem (no schedule row) matching weakest tag + adaptive difficulty; create schedule row with `next_review_at = today`
+4. **Nothing** — return empty (user is ahead of schedule)
 
 Queue is always 0 or 1 problem. Missing a day means tomorrow you see the same problem — no interval penalty.
+
+---
+
+## Adaptive Difficulty
+
+When step 3 picks a new problem, difficulty is derived per-tag from attempt history:
+- avg rating ≥ 4 on Medium problems in that tag → assign Hard
+- avg rating ≤ 2 on Medium problems in that tag → assign Easy
+- Otherwise → stay at Medium
+- No history for tag → default to Easy
 
 ---
 
@@ -134,6 +157,7 @@ Example: DP problems with 60% failure rate → a DP problem due in 10 days gets 
 | `/api/queue` | GET | Today's single problem (or empty if none due) |
 | `/api/attempt` | POST | Log recall rating, compute + write next schedule |
 | `/api/sync` | POST | Fetch new accepted submissions, upsert problems + schedule |
+| `/api/seed` | POST | One-time seed of full LeetCode problem bank into DB |
 | `/api/stats` | GET | Topic weakness scores, current streak, upcoming due dates |
 | `/api/settings` | GET / PATCH | Read/update notification settings |
 | `/api/cron/daily-reminder` | POST | Vercel cron trigger — send daily email if enabled |
@@ -156,7 +180,8 @@ Example: DP problems with 60% failure rate → a DP problem due in 10 days gets 
 3. Write DB schema, run first migration ✅
 4. Build alfa-leetcode-api client (`lib/leetcode/client.ts`) ✅
 5. Build `/api/sync` to seed DB ✅
-6. Implement SR algorithm (`lib/scheduler/algorithm.ts`)
+6. Implement SR algorithm (`lib/scheduler/algorithm.ts`) ✅
+6a. Build `/api/seed` to seed full LeetCode problem bank
 7. Build queue + attempt + stats API routes
 8. Set up Nodemailer Gmail SMTP (`lib/email/`)
 9. Build `/api/cron/daily-reminder` + `vercel.json` cron config

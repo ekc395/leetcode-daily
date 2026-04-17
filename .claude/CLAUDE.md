@@ -19,17 +19,31 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Key Architecture Concepts
 
-### Daily Queue Logic
-`GET /api/queue` returns at most 1 problem per day:
-1. If any problem has `next_review_at <= today` and no attempt logged today → return that problem (incomplete problems block new ones)
-2. Otherwise → pick the problem with the earliest `next_review_at <= today`
+### Problem Pool
+Two types of problems coexist in the `problems` table:
+- **Solved problems** — synced from LeetCode accepted submissions via `/api/sync`. Get a head-start schedule row on entry (`interval_days = 1`, `ease_factor = 2.5`, `next_review_at = tomorrow`).
+- **Unseeded problems** — seeded from the full LeetCode problem bank via `/api/seed`. No schedule row until the queue assigns them.
 
-Missing a day has no penalty — the same problem just appears again the next day.
+### Daily Queue Logic
+`GET /api/queue` returns at most 1 problem per day, in priority order:
+1. **Incomplete review** — problem with `next_review_at <= today` and no attempt logged today → surface it, blocks everything else
+2. **SR due** — earliest `next_review_at <= today` from scheduled problems
+3. **New problem** — pick an unseeded problem (no schedule row) matching the user's weakest tag + adaptive difficulty; create a schedule row with `next_review_at = today`
+4. **Nothing** — return empty (user is ahead of schedule)
+
+Missing a day has no penalty — the same problem reappears the next day.
 
 ### Hybrid SR Algorithm (`lib/scheduler/algorithm.ts`)
 Two components combined after each `POST /api/attempt`:
 - **SM-2 base**: interval grows when recall_rating ≥ 3, resets to 1 day on failure; ease_factor defaults to 2.5
 - **Topic weakness modifier**: `weakness_score = failures / total_attempts` per tag; `final_interval = sm2_interval × (1 − avg_weakness_score)`, clamped to minimum 1 day
+
+### Adaptive Difficulty (for new problem selection)
+When assigning an unseeded problem, difficulty is derived per-tag from the user's attempt history:
+- avg rating ≥ 4 on Medium problems in that tag → assign Hard
+- avg rating ≤ 2 on Medium problems in that tag → assign Easy
+- Otherwise → stay at Medium
+- No history for a tag → default to Easy
 
 ### Email Notifications
 Vercel Cron Job fires daily at 9 AM UTC → `POST /api/cron/daily-reminder` → checks `settings.notifications_enabled` → sends Gmail SMTP email with problem title, difficulty, tags, and link to app. Notifications toggled via `/settings` page.
@@ -50,6 +64,7 @@ Vercel Cron Job fires daily at 9 AM UTC → `POST /api/cron/daily-reminder` → 
 | `/api/queue` | GET | Today's single problem |
 | `/api/attempt` | POST | Log recall rating, advance schedule |
 | `/api/sync` | POST | Pull accepted submissions from alfa-leetcode-api, upsert DB |
+| `/api/seed` | POST | One-time seed of full LeetCode problem bank into DB |
 | `/api/stats` | GET | Topic weakness scores, streak, upcoming due dates |
 | `/api/settings` | GET/PATCH | Read/update notification settings |
 | `/api/cron/daily-reminder` | POST | Vercel cron trigger — send daily email if enabled |

@@ -1,3 +1,4 @@
+import pLimit from "p-limit";
 import { getAcceptedSubmissions, getProblemDetail } from "@/lib/leetcode/client";
 import { db } from "@/lib/db";
 import { problems, schedule } from "@/lib/db/schema";
@@ -13,15 +14,21 @@ export async function POST(request: Request) {
         const submissions = await getAcceptedSubmissions(username);
         const seen = new Set<string>();
         const unique = submissions.filter(s => {
-            if (seen.has(s.titleSlug)) {
-                return false;
-            }
+            if (seen.has(s.titleSlug)) return false;
             seen.add(s.titleSlug);
             return true;
         });
-        for (const s of unique) {
-            const problemDetail = await getProblemDetail(s.titleSlug);
-            // Upsert into problems table
+
+        const limit = pLimit(5);
+        const details = await Promise.all(
+            unique.map(s => limit(() => getProblemDetail(s.titleSlug)))
+        );
+
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        const tomorrowStr = tomorrow.toISOString().split("T")[0];
+
+        for (const problemDetail of details) {
             const [problem] = await db.insert(problems).values({
                 slug: problemDetail.titleSlug,
                 title: problemDetail.questionTitle,
@@ -37,18 +44,16 @@ export async function POST(request: Request) {
                 },
             })
             .returning();
-            // Upsert into schedule table if problemId doesn't exist
-            const tomorrow = new Date();
-            tomorrow.setDate(tomorrow.getDate() + 1);
+
             await db.insert(schedule).values({
                 problemId: problem.id,
-                nextReviewAt: tomorrow.toISOString().split("T")[0],
+                nextReviewAt: tomorrowStr,
                 intervalDays: 1,
                 easeFactor: 2.5,
             })
             .onConflictDoNothing();
         }
-        return Response.json({ synced: unique.length }); 
+        return Response.json({ synced: unique.length });
     } catch (error) {
         return Response.json({ error: "Sync failed" }, { status: 500 });
     }

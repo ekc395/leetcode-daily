@@ -2,7 +2,13 @@ import { getProblemList } from "@/lib/leetcode/client";
 import { db } from "@/lib/db";
 import { problems } from "@/lib/db/schema";
 
+const CRON_SECRET = process.env.CRON_SECRET;
+
 export async function POST(request: Request) {
+    const authHeader = request.headers.get("authorization");
+    if (!CRON_SECRET || authHeader !== `Bearer ${CRON_SECRET}`) {
+        return Response.json({ error: "Unauthorized" }, { status: 401 });
+    }
     try {
         const problemList = [];
         let skip = 0;

@@ -194,7 +194,9 @@ Example: DP problems with 60% failure rate → a DP problem due in 10 days gets 
 
 ```
 DATABASE_URL=             # Neon connection string
+LEETCODE_API_URL=         # alfa-leetcode-api base URL
 LEETCODE_USERNAME=        # Your LeetCode username
+CRON_SECRET=              # Random secret — validated on /api/seed and /api/cron/* routes
 GMAIL_USER=               # Your Gmail address
 GMAIL_APP_PASSWORD=       # Google App Password (not your login password)
 NOTIFICATION_EMAIL=       # Where to send daily emails (probably same as GMAIL_USER)

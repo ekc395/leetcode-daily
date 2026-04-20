@@ -5,7 +5,7 @@ import { problems, schedule } from "@/lib/db/schema";
 
 const LEETCODE_USERNAME = process.env.LEETCODE_USERNAME;
 
-export async function POST(request: Request) {
+export async function POST(_request: Request) {
     try {
         const username = LEETCODE_USERNAME;
         if (!username) {

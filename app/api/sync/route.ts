@@ -24,14 +24,14 @@ export async function POST(request: Request) {
             // Upsert into problems table
             const [problem] = await db.insert(problems).values({
                 slug: problemDetail.titleSlug,
-                title: problemDetail.title,
+                title: problemDetail.questionTitle,
                 difficulty: problemDetail.difficulty,
                 tags: problemDetail.topicTags.map(t => t.name),
             })
             .onConflictDoUpdate({
                 target: problems.slug,
                 set: {
-                    title: problemDetail.title,
+                    title: problemDetail.questionTitle,
                     difficulty: problemDetail.difficulty,
                     tags: problemDetail.topicTags.map(t => t.name),
                 },

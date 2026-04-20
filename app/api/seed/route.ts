@@ -14,15 +14,10 @@ export async function POST(request: Request) {
             problemList.push(...batch);
             skip += 100;
         }
-        const difficultyMap: Record<number, string> = {
-            1: "Easy",
-            2: "Medium",
-            3: "Hard"
-        };
         const rows = problemList.map(problem => ({
-            slug: problem.stat.question__title_slug,
-            title: problem.stat.question__title,
-            difficulty: difficultyMap[problem.difficulty.level] ?? "Medium",
+            slug: problem.titleSlug,
+            title: problem.title,
+            difficulty: problem.difficulty,
             tags: [] as string[],
         }));
         await db.insert(problems).values(rows).onConflictDoNothing();

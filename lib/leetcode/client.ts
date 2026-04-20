@@ -8,7 +8,7 @@ export async function getAcceptedSubmissions(username: string, limit = 50): Prom
         throw new Error(`Failed to fetch accepted submissions for ${username}: ${response.status} ${response.statusText}`);
     }
     const data = await response.json();
-    return data;
+    return data.submission as AcSubmission[];
 }
 
 export async function getProblemDetail(titleSlug: string): Promise<ProblemDetail> {
@@ -25,5 +25,5 @@ export async function getProblemList(limit = 100, skip = 0): Promise<ProblemList
         throw new Error(`Failed to fetch problem list: ${response.status} ${response.statusText}`);
     }
     const data = await response.json();
-    return data;
+    return data.problemsetQuestionList as ProblemListItem[];
 }

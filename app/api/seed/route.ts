@@ -29,6 +29,11 @@ export async function POST(request: Request) {
         await db.insert(problems).values(rows).onConflictDoNothing();
         return Response.json({ seeded: problemList.length });
     } catch (error) {
-        return Response.json({ error: "Seed failed" }, { status: 500 });
+        const message = error instanceof Error ? error.message : String(error);
+        console.error("[seed] failed:", error);
+        return Response.json(
+            { error: "Seed failed", ...(process.env.NODE_ENV !== "production" && { detail: message }) },
+            { status: 500 }
+        );
     }
 }

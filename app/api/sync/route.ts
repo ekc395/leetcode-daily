@@ -55,6 +55,11 @@ export async function POST(_request: Request) {
         }
         return Response.json({ synced: unique.length });
     } catch (error) {
-        return Response.json({ error: "Sync failed" }, { status: 500 });
+        const message = error instanceof Error ? error.message : String(error);
+        console.error("[sync] failed:", error);
+        return Response.json(
+            { error: "Sync failed", ...(process.env.NODE_ENV !== "production" && { detail: message }) },
+            { status: 500 }
+        );
     }
 }

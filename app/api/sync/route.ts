@@ -29,29 +29,31 @@ export async function POST(_request: Request) {
         const tomorrowStr = tomorrow.toISOString().split("T")[0];
 
         for (const problemDetail of details) {
-            const [problem] = await db.insert(problems).values({
-                slug: problemDetail.titleSlug,
-                title: problemDetail.questionTitle,
-                difficulty: problemDetail.difficulty,
-                tags: problemDetail.topicTags.map(t => t.name),
-            })
-            .onConflictDoUpdate({
-                target: problems.slug,
-                set: {
+            await db.transaction(async (tx) => {
+                const [problem] = await tx.insert(problems).values({
+                    slug: problemDetail.titleSlug,
                     title: problemDetail.questionTitle,
                     difficulty: problemDetail.difficulty,
                     tags: problemDetail.topicTags.map(t => t.name),
-                },
-            })
-            .returning();
+                })
+                .onConflictDoUpdate({
+                    target: problems.slug,
+                    set: {
+                        title: problemDetail.questionTitle,
+                        difficulty: problemDetail.difficulty,
+                        tags: problemDetail.topicTags.map(t => t.name),
+                    },
+                })
+                .returning();
 
-            await db.insert(schedule).values({
-                problemId: problem.id,
-                nextReviewAt: tomorrowStr,
-                intervalDays: 1,
-                easeFactor: 2.5,
-            })
-            .onConflictDoNothing();
+                await tx.insert(schedule).values({
+                    problemId: problem.id,
+                    nextReviewAt: tomorrowStr,
+                    intervalDays: 1,
+                    easeFactor: 2.5,
+                })
+                .onConflictDoNothing();
+            });
         }
         return Response.json({ synced: unique.length });
     } catch (error) {

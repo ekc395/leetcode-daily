@@ -15,6 +15,13 @@
       "when": 1776645262559,
       "tag": "0001_last_cerise",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1776965271941,
+      "tag": "0002_striped_hammerhead",
+      "breakpoints": true
     }
   ]
 }

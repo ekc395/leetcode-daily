@@ -1,4 +1,5 @@
-import { pgTable, serial, text, integer, boolean, timestamp, date, real, jsonb, index } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, integer, boolean, timestamp, date, real, jsonb, index, check } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 
 export const problems = pgTable("problems", {
   id: serial("id").primaryKey(),
@@ -8,6 +9,7 @@ export const problems = pgTable("problems", {
   tags: jsonb("tags").$type<string[]>().notNull().default([]),
 }, (table) => [
   index("problems_tags_gin_idx").using("gin", table.tags),
+  check("difficulty_check", sql`${table.difficulty} IN ('Easy', 'Medium', 'Hard')`),
 ]);
 
 export const attempts = pgTable("attempts", {

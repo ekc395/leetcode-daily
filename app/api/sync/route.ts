@@ -4,8 +4,13 @@ import { db } from "@/lib/db";
 import { problems, schedule } from "@/lib/db/schema";
 
 const LEETCODE_USERNAME = process.env.LEETCODE_USERNAME;
+const CRON_SECRET = process.env.CRON_SECRET;
 
-export async function POST(_request: Request) {
+export async function POST(request: Request) {
+    const authHeader = request.headers.get("authorization");
+    if (!CRON_SECRET || authHeader !== `Bearer ${CRON_SECRET}`) {
+        return Response.json({ error: "Unauthorized" }, { status: 401 });
+    }
     try {
         const username = LEETCODE_USERNAME;
         if (!username) {

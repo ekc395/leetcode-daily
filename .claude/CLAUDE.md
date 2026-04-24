@@ -75,7 +75,7 @@ Vercel Cron Job fires daily at 9 AM UTC → `POST /api/cron/daily-reminder` → 
 DATABASE_URL=             # Neon connection string
 LEETCODE_API_URL=         # alfa-leetcode-api base URL
 LEETCODE_USERNAME=        # LeetCode username (no session cookie needed)
-CRON_SECRET=              # Random secret — validated on /api/seed and /api/cron/* routes
+CRON_SECRET=              # Random secret — validated on /api/sync, /api/seed, and /api/cron/* routes
 GMAIL_USER=               # Gmail address for sending
 GMAIL_APP_PASSWORD=       # Google App Password (requires 2FA enabled)
 NOTIFICATION_EMAIL=       # Recipient email for daily reminders

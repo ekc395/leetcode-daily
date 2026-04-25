@@ -1,6 +1,5 @@
 import { db } from "@/lib/db";
-import { problems, attempts } from "@/lib/db/schema";
-import { inArray, sql } from "drizzle-orm";
+import { sql } from "drizzle-orm";
 
 const SM2_PASS_THRESHOLD = 3;
 const SM2_EASE_BONUS = 0.1;
@@ -42,26 +41,23 @@ export function applyWeaknessModifier(intervalDays: number, avgWeakness: number)
 export async function getAverageTagWeakness(tags: string[]): Promise<number> {
     if (tags.length === 0) return 0;
 
-    const taggedProblems = await db.select({ id: problems.id, tags: problems.tags })
-        .from(problems)
-        .where(sql`${problems.tags} ?| array[${sql.join(tags.map(t => sql`${t}`), sql`, `)}]`);
-    if (taggedProblems.length === 0) return 0;
-
-    const relatedAttempts = await db.select({
-        problemId: attempts.problemId,
-        recallRating: attempts.recallRating,
-    }).from(attempts).where(inArray(attempts.problemId, taggedProblems.map(p => p.id)));
-
-    const scores: number[] = [];
-    for (const tag of tags) {
-        const tagProblemIds = new Set(taggedProblems.filter(p => p.tags.includes(tag)).map(p => p.id));
-        const tagAttempts = relatedAttempts.filter(a => tagProblemIds.has(a.problemId));
-        if (tagAttempts.length === 0) continue;
-        const failures = tagAttempts.filter(a => a.recallRating < SM2_PASS_THRESHOLD).length;
-        scores.push(failures / tagAttempts.length);
-    }
-    if (scores.length === 0) return 0;
-    return scores.reduce((a, b) => a + b, 0) / scores.length;
+    const tagsArray = sql.join(tags.map(t => sql`${t}`), sql`, `);
+    const result = await db.execute<{ avg_weakness: number | null }>(sql`
+        WITH tag_stats AS (
+            SELECT
+                t.tag,
+                COUNT(*) FILTER (WHERE a.recall_rating < ${SM2_PASS_THRESHOLD}) AS failures,
+                COUNT(*) AS total
+            FROM unnest(ARRAY[${tagsArray}]::text[]) AS t(tag)
+            JOIN problems p ON p.tags ? t.tag
+            JOIN attempts a ON a.problem_id = p.id
+            GROUP BY t.tag
+        )
+        SELECT COALESCE(AVG(failures::float / total), 0)::float AS avg_weakness
+        FROM tag_stats
+        WHERE total > 0
+    `);
+    return Number(result.rows[0]?.avg_weakness ?? 0);
 }
 
 export async function computeNextSchedule(

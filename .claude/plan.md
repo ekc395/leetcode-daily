@@ -183,7 +183,7 @@ Example: DP problems with 60% failure rate → a DP problem due in 10 days gets 
 6. Implement SR algorithm (`lib/scheduler/algorithm.ts`) ✅
 6a. Build `/api/seed` to seed full LeetCode problem bank ✅
 7. Build queue + attempt + stats API routes ✅
-8. Set up Nodemailer Gmail SMTP (`lib/email/`)
+8. Set up Nodemailer Gmail SMTP (`lib/email/`) ✅
 9. Build `/api/cron/daily-reminder` + `vercel.json` cron config
 10. Build frontend pages + components
 11. Deploy to Vercel, add env vars

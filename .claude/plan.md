@@ -103,7 +103,7 @@ When step 3 picks a new problem, difficulty is derived per-tag from attempt hist
 
 ## Email Notifications
 
-**Trigger**: Vercel Cron Job calls `POST /api/cron/daily-reminder` once per day (9 AM UTC).
+**Trigger**: Vercel Cron Job calls `GET /api/cron/daily-reminder` once per day (9 AM UTC).
 
 **Route logic**:
 1. Check `settings.notifications_enabled` — exit early if false
@@ -160,7 +160,7 @@ Example: DP problems with 60% failure rate → a DP problem due in 10 days gets 
 | `/api/seed` | POST | One-time seed of full LeetCode problem bank into DB |
 | `/api/stats` | GET | Topic weakness scores, current streak, upcoming due dates |
 | `/api/settings` | GET / PATCH | Read/update notification settings |
-| `/api/cron/daily-reminder` | POST | Vercel cron trigger — send daily email if enabled |
+| `/api/cron/daily-reminder` | GET | Vercel cron trigger — send daily email if enabled |
 
 ---
 
@@ -184,7 +184,7 @@ Example: DP problems with 60% failure rate → a DP problem due in 10 days gets 
 6a. Build `/api/seed` to seed full LeetCode problem bank ✅
 7. Build queue + attempt + stats API routes ✅
 8. Set up Nodemailer Gmail SMTP (`lib/email/`) ✅
-9. Build `/api/cron/daily-reminder` + `vercel.json` cron config
+9. Build `/api/cron/daily-reminder` + `vercel.json` cron config ✅
 10. Build frontend pages + components
 11. Deploy to Vercel, add env vars
 
@@ -211,6 +211,6 @@ NEXT_PUBLIC_APP_URL=      # Your Vercel deployment URL (for email links)
 2. `GET /api/queue` → 1 problem returned; same problem on next call if no attempt logged
 3. `POST /api/attempt` with rating → schedule advances correctly
 4. Skip a day → next day still returns same problem
-5. `POST /api/cron/daily-reminder` manually → email arrives with correct problem
+5. `GET /api/cron/daily-reminder` manually → email arrives with correct problem
 6. Toggle notifications off in `/settings` → cron route sends nothing
 7. Deploy to Vercel → cron fires at 9 AM UTC, emails arrive, all routes work

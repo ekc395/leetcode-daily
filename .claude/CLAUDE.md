@@ -46,7 +46,7 @@ When assigning an unseeded problem, difficulty is derived per-tag from the user'
 - No history for a tag → default to Easy
 
 ### Email Notifications
-Vercel Cron Job fires daily at 9 AM UTC → `POST /api/cron/daily-reminder` → checks `settings.notifications_enabled` → sends Gmail SMTP email with problem title, difficulty, tags, and link to app. Notifications toggled via `/settings` page.
+Vercel Cron Job fires daily at 9 AM UTC → `GET /api/cron/daily-reminder` → checks `settings.notifications_enabled` → sends Gmail SMTP email with problem title, difficulty, tags, and link to app. Notifications toggled via `/settings` page.
 
 ## Database Schema
 
@@ -67,7 +67,7 @@ Vercel Cron Job fires daily at 9 AM UTC → `POST /api/cron/daily-reminder` → 
 | `/api/seed` | POST | One-time seed of full LeetCode problem bank into DB |
 | `/api/stats` | GET | Topic weakness scores, streak, upcoming due dates |
 | `/api/settings` | GET/PATCH | Read/update notification settings |
-| `/api/cron/daily-reminder` | POST | Vercel cron trigger — send daily email if enabled |
+| `/api/cron/daily-reminder` | GET | Vercel cron trigger — send daily email if enabled |
 
 ## Environment Variables
 

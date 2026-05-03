@@ -1,1 +1,2 @@
 - potential edge case: user does multiple problems in a day. only rates the first problem which was the assigned problem. will have to create some front-end method to give ratings to additional problems completed that weren't assigned
+    - create either a next button (assumes user follows the algo plan) or a refresh button (tackles the case where the user does multiple problems and some of them are not in the queue)

@@ -23,6 +23,15 @@ function todayUtc(): string {
     return new Date().toISOString().split("T")[0]!;
 }
 
+async function hasAttemptToday(today: string): Promise<boolean> {
+    const rows = await db
+        .select({ id: attempts.id })
+        .from(attempts)
+        .where(eq(attempts.attemptedAt, today))
+        .limit(1);
+    return rows.length > 0;
+}
+
 async function findDueProblem(today: string): Promise<QueueProblem | null> {
     const rows = await db
         .select({
@@ -132,6 +141,10 @@ export async function getOrAssignTodaysProblem(): Promise<QueueResult> {
 
     const due = await findDueProblem(today);
     if (due) return { problem: due, source: "due" };
+
+    if (await hasAttemptToday(today)) {
+        return { problem: null, source: null };
+    }
 
     const picked = await assignNewProblem();
     if (!picked) return { problem: null, source: null };

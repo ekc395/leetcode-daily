@@ -38,6 +38,40 @@ export function applyWeaknessModifier(intervalDays: number, avgWeakness: number)
     return Math.max(1, Math.round(intervalDays * (1 - avgWeakness)));
 }
 
+export interface TagWeaknessRow {
+    tag: string;
+    failures: number;
+    total: number;
+    weakness: number;
+}
+
+export async function getAllTagWeakness(): Promise<TagWeaknessRow[]> {
+    const result = await db.execute<{
+        tag: string;
+        failures: number;
+        total: number;
+        weakness: number;
+    }>(sql`
+        SELECT
+            tag.value AS tag,
+            COUNT(*) FILTER (WHERE a.recall_rating < ${SM2_PASS_THRESHOLD})::int AS failures,
+            COUNT(*)::int AS total,
+            (COUNT(*) FILTER (WHERE a.recall_rating < ${SM2_PASS_THRESHOLD}))::float
+                / NULLIF(COUNT(*), 0)::float AS weakness
+        FROM attempts a
+        JOIN problems p ON p.id = a.problem_id
+        CROSS JOIN LATERAL jsonb_array_elements_text(p.tags) AS tag(value)
+        GROUP BY tag.value
+        ORDER BY weakness DESC NULLS LAST, total DESC
+    `);
+    return result.rows.map(r => ({
+        tag: r.tag,
+        failures: Number(r.failures),
+        total: Number(r.total),
+        weakness: Number(r.weakness ?? 0),
+    }));
+}
+
 export async function getAverageTagWeakness(tags: string[]): Promise<number> {
     if (tags.length === 0) return 0;
 

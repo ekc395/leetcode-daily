@@ -1,7 +1,7 @@
 import { sql } from "drizzle-orm";
 import { db } from "@/lib/db";
+import { getAllTagWeakness } from "@/lib/scheduler/algorithm";
 
-const SM2_PASS_THRESHOLD = 3;
 const HEATMAP_DAYS = 84;
 const RECALL_TREND_COUNT = 14;
 const UPCOMING_HORIZON_DAYS = 14;
@@ -17,33 +17,6 @@ function shiftDay(isoDate: string, days: number): string {
 }
 
 const subDay = (isoDate: string, days: number) => shiftDay(isoDate, -days);
-
-async function getTagWeakness() {
-    const result = await db.execute<{
-        tag: string;
-        failures: number;
-        total: number;
-        weakness: number;
-    }>(sql`
-        SELECT
-            tag.value AS tag,
-            COUNT(*) FILTER (WHERE a.recall_rating < ${SM2_PASS_THRESHOLD})::int AS failures,
-            COUNT(*)::int AS total,
-            (COUNT(*) FILTER (WHERE a.recall_rating < ${SM2_PASS_THRESHOLD}))::float
-                / NULLIF(COUNT(*), 0)::float AS weakness
-        FROM attempts a
-        JOIN problems p ON p.id = a.problem_id
-        CROSS JOIN LATERAL jsonb_array_elements_text(p.tags) AS tag(value)
-        GROUP BY tag.value
-        ORDER BY weakness DESC NULLS LAST, total DESC
-    `);
-    return result.rows.map(r => ({
-        tag: r.tag,
-        failures: Number(r.failures),
-        total: Number(r.total),
-        weakness: Number(r.weakness ?? 0),
-    }));
-}
 
 async function getStreakStats(today: string) {
     const datesResult = await db.execute<{ attempted_at: string }>(sql`
@@ -149,7 +122,7 @@ export async function GET() {
     try {
         const today = todayUtc();
         const [weakness, streak, recall, difficultyMix, activityGrid, upcoming] = await Promise.all([
-            getTagWeakness(),
+            getAllTagWeakness(),
             getStreakStats(today),
             getRecallTrend(),
             getDifficultyMix(),

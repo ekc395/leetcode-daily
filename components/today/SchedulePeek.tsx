@@ -1,11 +1,48 @@
+"use client";
+
+import * as React from "react";
 import { Card } from "../Card";
 import { DiffBadge } from "../DiffBadge";
-import { TODAY, SCHEDULE, problemById } from "@/lib/mockData";
+import type { Difficulty } from "@/lib/types";
+
+type UpcomingItem = {
+  id: number;
+  slug: string;
+  title: string;
+  difficulty: Difficulty;
+  tags: string[];
+  nextReviewAt: string;
+};
+
+type UpcomingResponse = {
+  today: string;
+  upcoming: UpcomingItem[];
+};
 
 export function SchedulePeek() {
-  const upcoming = SCHEDULE.filter((s) => s.nextReviewAt > TODAY)
-    .sort((a, b) => a.nextReviewAt.localeCompare(b.nextReviewAt))
-    .slice(0, 5);
+  const [data, setData] = React.useState<UpcomingResponse | null>(null);
+  const [loadError, setLoadError] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    let cancelled = false;
+    fetch("/api/upcoming?limit=5")
+      .then(async (r) => {
+        if (!r.ok) throw new Error(`Upcoming returned ${r.status}`);
+        return r.json();
+      })
+      .then((d: UpcomingResponse) => {
+        if (!cancelled) setData(d);
+      })
+      .catch((e: unknown) => {
+        if (!cancelled) setLoadError(e instanceof Error ? e.message : "Failed to load");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const upcoming = data?.upcoming ?? [];
+  const today = data?.today;
 
   return (
     <Card>
@@ -33,61 +70,69 @@ export function SchedulePeek() {
         <span
           style={{ fontSize: 11, color: "var(--text-mute)", fontFamily: "var(--font-mono)" }}
         >
-          {upcoming.length} queued
+          {data ? `${upcoming.length} queued` : ""}
         </span>
       </div>
-      <div style={{ display: "flex", flexDirection: "column" }}>
-        {upcoming.map((s, i) => {
-          const p = problemById(s.problemId);
-          if (!p) return null;
-          const days = Math.round(
-            (new Date(s.nextReviewAt).getTime() - new Date(TODAY).getTime()) / 86400000,
-          );
-          return (
-            <div
-              key={s.problemId}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 12,
-                padding: "10px 0",
-                borderTop: i === 0 ? "none" : "1px solid var(--border)",
-              }}
-            >
+      {loadError ? (
+        <div style={{ color: "var(--text-mute)", fontSize: 12 }}>Error: {loadError}</div>
+      ) : !data ? (
+        <div style={{ color: "var(--text-mute)", fontSize: 12 }}>Loading…</div>
+      ) : upcoming.length === 0 ? (
+        <div style={{ color: "var(--text-mute)", fontSize: 12 }}>Nothing queued.</div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column" }}>
+          {upcoming.map((p, i) => {
+            const days = today
+              ? Math.round(
+                  (new Date(p.nextReviewAt).getTime() - new Date(today).getTime()) / 86400000,
+                )
+              : 0;
+            return (
               <div
+                key={p.id}
                 style={{
-                  flex: "0 0 32px",
-                  fontFamily: "var(--font-mono)",
-                  fontSize: 11,
-                  color: "var(--text-mute)",
-                  textAlign: "center",
-                  lineHeight: 1.2,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 12,
+                  padding: "10px 0",
+                  borderTop: i === 0 ? "none" : "1px solid var(--border)",
                 }}
               >
-                <div style={{ color: "var(--text-dim)", fontSize: 12 }}>+{days}</div>
-                <div>day{days === 1 ? "" : "s"}</div>
-              </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
                 <div
                   style={{
-                    fontSize: 12.5,
-                    color: "var(--text)",
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    whiteSpace: "nowrap",
+                    flex: "0 0 32px",
+                    fontFamily: "var(--font-mono)",
+                    fontSize: 11,
+                    color: "var(--text-mute)",
+                    textAlign: "center",
+                    lineHeight: 1.2,
                   }}
                 >
-                  {p.title}
+                  <div style={{ color: "var(--text-dim)", fontSize: 12 }}>+{days}</div>
+                  <div>day{days === 1 ? "" : "s"}</div>
                 </div>
-                <div style={{ fontSize: 11, color: "var(--text-mute)", marginTop: 2 }}>
-                  {p.tags.slice(0, 2).join(" · ")}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div
+                    style={{
+                      fontSize: 12.5,
+                      color: "var(--text)",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {p.title}
+                  </div>
+                  <div style={{ fontSize: 11, color: "var(--text-mute)", marginTop: 2 }}>
+                    {p.tags.slice(0, 2).join(" · ")}
+                  </div>
                 </div>
+                <DiffBadge difficulty={p.difficulty} size="sm" />
               </div>
-              <DiffBadge difficulty={p.difficulty} size="sm" />
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      )}
     </Card>
   );
 }

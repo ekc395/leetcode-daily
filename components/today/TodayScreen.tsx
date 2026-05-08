@@ -9,8 +9,8 @@ import { RatingPills } from "./RatingPills";
 import { SchedulePeek } from "./SchedulePeek";
 import { TodayProgress } from "./TodayProgress";
 import { EmptyState } from "./EmptyState";
-import { RatedState } from "./RatedState";
-import { STREAK, type Problem } from "@/lib/mockData";
+import { RatedState, type ScheduleResult } from "./RatedState";
+import type { AttemptSummary, Problem, Streak, TagWeakness } from "@/lib/types";
 
 const formatLong = (d: Date) =>
   d.toLocaleDateString("en-US", {
@@ -19,25 +19,45 @@ const formatLong = (d: Date) =>
     day: "numeric",
   });
 
-type QueueResponse = { problem: Problem | null };
+const todayUtc = () => new Date().toISOString().split("T")[0]!;
+
+type QueueResponse = {
+  problem: Problem | null;
+  source?: "due" | "new";
+  lastAttempt?: AttemptSummary | null;
+};
+
+type StatsResponse = {
+  streak: Streak;
+  weakness: TagWeakness[];
+};
 
 export function TodayScreen() {
-  const [data, setData] = React.useState<QueueResponse | null>(null);
+  const [queue, setQueue] = React.useState<QueueResponse | null>(null);
+  const [stats, setStats] = React.useState<StatsResponse | null>(null);
   const [loadError, setLoadError] = React.useState<string | null>(null);
   const [submitError, setSubmitError] = React.useState<string | null>(null);
   const [rating, setRating] = React.useState<number | null>(null);
+  const [submittedSchedule, setSubmittedSchedule] = React.useState<ScheduleResult | null>(null);
   const [submitted, setSubmitted] = React.useState(false);
   const [logging, setLogging] = React.useState(false);
 
   React.useEffect(() => {
     let cancelled = false;
-    fetch("/api/queue")
-      .then(async (r) => {
+    Promise.all([
+      fetch("/api/queue").then(async (r) => {
         if (!r.ok) throw new Error(`Queue returned ${r.status}`);
-        return r.json();
-      })
-      .then((d: QueueResponse) => {
-        if (!cancelled) setData(d);
+        return (await r.json()) as QueueResponse;
+      }),
+      fetch("/api/stats").then(async (r) => {
+        if (!r.ok) throw new Error(`Stats returned ${r.status}`);
+        return (await r.json()) as StatsResponse;
+      }),
+    ])
+      .then(([q, s]) => {
+        if (cancelled) return;
+        setQueue(q);
+        setStats(s);
       })
       .catch((e: unknown) => {
         if (!cancelled) setLoadError(e instanceof Error ? e.message : "Failed to load");
@@ -48,21 +68,24 @@ export function TodayScreen() {
   }, []);
 
   const today = new Date();
+  const todayStr = todayUtc();
 
   const handleLog = async () => {
-    if (!data?.problem || !rating) return;
+    if (!queue?.problem || !rating) return;
     setSubmitError(null);
     setLogging(true);
     try {
       const res = await fetch("/api/attempt", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ problemId: data.problem.id, recallRating: rating }),
+        body: JSON.stringify({ problemId: queue.problem.id, recallRating: rating }),
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
         throw new Error(body.error ?? `Attempt returned ${res.status}`);
       }
+      const body = (await res.json()) as { schedule?: ScheduleResult };
+      setSubmittedSchedule(body.schedule ?? null);
       setSubmitted(true);
     } catch (e: unknown) {
       setSubmitError(e instanceof Error ? e.message : "Log attempt failed");
@@ -81,20 +104,31 @@ export function TodayScreen() {
         </Card>
       );
     }
-    if (!data) {
+    if (!queue) {
       return (
         <Card>
           <div style={{ color: "var(--text-mute)", fontSize: 13 }}>Loading…</div>
         </Card>
       );
     }
-    if (!data.problem) return <EmptyState />;
+    if (!queue.problem) return <EmptyState streak={stats?.streak ?? null} />;
     if (submitted && rating) {
-      return <RatedState problem={data.problem} rating={rating} />;
+      return (
+        <RatedState
+          problem={queue.problem}
+          rating={rating}
+          schedule={submittedSchedule}
+        />
+      );
     }
     return (
       <>
-        <ProblemCard problem={data.problem} />
+        <ProblemCard
+          problem={queue.problem}
+          today={todayStr}
+          tagWeakness={stats?.weakness ?? []}
+          lastAttempt={queue.lastAttempt ?? null}
+        />
         <Card>
           <RatingPills value={rating} onChange={setRating} />
           <div
@@ -175,7 +209,7 @@ export function TodayScreen() {
             <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
               <Icon name="flame" size={14} />
               <span style={{ fontFamily: "var(--font-mono)" }}>
-                {STREAK.current}d streak
+                {stats ? `${stats.streak.current}d streak` : "—"}
               </span>
             </span>
             <span style={{ width: 1, height: 12, background: "var(--border)" }} />
@@ -205,7 +239,11 @@ export function TodayScreen() {
             top: 24,
           }}
         >
-          <TodayProgress state={submitted ? "rated" : "due"} />
+          <TodayProgress
+            state={submitted ? "rated" : "due"}
+            today={todayStr}
+            streak={stats?.streak ?? null}
+          />
           <SchedulePeek />
         </div>
       </div>

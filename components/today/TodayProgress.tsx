@@ -1,9 +1,17 @@
 import { Card } from "../Card";
 import { Icon } from "../Icon";
-import { TODAY, STREAK } from "@/lib/mockData";
+import type { Streak } from "@/lib/types";
 import type { TodayState } from "./types";
 
-export function TodayProgress({ state }: { state: TodayState }) {
+export function TodayProgress({
+  state,
+  today,
+  streak,
+}: {
+  state: TodayState;
+  today: string;
+  streak: Streak | null;
+}) {
   const ringSize = 120;
   const r = (ringSize - 8) / 2;
   const c = 2 * Math.PI * r;
@@ -35,7 +43,7 @@ export function TodayProgress({ state }: { state: TodayState }) {
           <span
             style={{ fontSize: 11, color: "var(--text-mute)", fontFamily: "var(--font-mono)" }}
           >
-            {TODAY}
+            {today}
           </span>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 22 }}>
@@ -123,7 +131,7 @@ export function TodayProgress({ state }: { state: TodayState }) {
                   gap: 6,
                 }}
               >
-                <span style={{ color: "var(--accent)" }}>{STREAK.current}</span>
+                <span style={{ color: "var(--accent)" }}>{streak?.current ?? "—"}</span>
                 <span style={{ fontSize: 12, color: "var(--text-mute)" }}>days</span>
               </span>
             </div>
@@ -146,10 +154,9 @@ export function TodayProgress({ state }: { state: TodayState }) {
                   color: "var(--text)",
                 }}
               >
-                {STREAK.totalSolved}
+                {streak?.totalSolved ?? "—"}
                 <span style={{ fontSize: 12, color: "var(--text-mute)" }}>
-                  {" "}
-                  / {STREAK.totalDays}d
+                  {streak ? ` / ${streak.totalDays}d` : ""}
                 </span>
               </span>
             </div>

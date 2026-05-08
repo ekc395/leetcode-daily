@@ -6,15 +6,10 @@ import { DiffBadge } from "../DiffBadge";
 import { Tag } from "../Tag";
 import { Icon } from "../Icon";
 import { TOKENS } from "../tokens";
-import {
-  TODAY,
-  TAG_WEAKNESS,
-  lastAttemptFor,
-  type Problem,
-} from "@/lib/mockData";
+import type { AttemptSummary, Problem, TagWeakness } from "@/lib/types";
 
-const daysAgo = (dateStr: string) => {
-  const a = new Date(TODAY);
+const daysAgo = (dateStr: string, today: string) => {
+  const a = new Date(today);
   const b = new Date(dateStr);
   return Math.round((a.getTime() - b.getTime()) / 86400000);
 };
@@ -63,14 +58,22 @@ function TagWeaknessRow({
   );
 }
 
-export function ProblemCard({ problem }: { problem: Problem }) {
+export function ProblemCard({
+  problem,
+  today,
+  tagWeakness,
+  lastAttempt,
+}: {
+  problem: Problem;
+  today: string;
+  tagWeakness: TagWeakness[];
+  lastAttempt: AttemptSummary | null;
+}) {
   const [ctaHover, setCtaHover] = React.useState(false);
   const tagWeak = problem.tags
-    .map((t) => TAG_WEAKNESS.find((w) => w.tag === t))
+    .map((t) => tagWeakness.find((w) => w.tag === t))
     .filter((w): w is NonNullable<typeof w> => Boolean(w))
     .sort((a, b) => b.weakness - a.weakness);
-
-  const lastAttempt = lastAttemptFor(problem.id);
 
   return (
     <Card padding={0} style={{ overflow: "hidden" }}>
@@ -103,7 +106,7 @@ export function ProblemCard({ problem }: { problem: Problem }) {
                 fontFamily: "var(--font-mono)",
               }}
             >
-              Last seen {daysAgo(lastAttempt.attemptedAt)}d ago · rated{" "}
+              Last seen {daysAgo(lastAttempt.attemptedAt, today)}d ago · rated{" "}
               {lastAttempt.recallRating}/5
             </span>
           )}
@@ -125,7 +128,7 @@ export function ProblemCard({ problem }: { problem: Problem }) {
 
         <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 24 }}>
           {problem.tags.map((t) => {
-            const w = TAG_WEAKNESS.find((x) => x.tag === t)?.weakness;
+            const w = tagWeakness.find((x) => x.tag === t)?.weakness;
             return (
               <Tag key={t} weakness={w}>
                 {t}

@@ -1,9 +1,9 @@
 import { Card } from "../Card";
 import { Icon } from "../Icon";
 import { TOKENS } from "../tokens";
-import { STREAK } from "@/lib/mockData";
+import type { Streak } from "@/lib/types";
 
-export function EmptyState() {
+export function EmptyState({ streak }: { streak: Streak | null }) {
   return (
     <Card padding={48} style={{ textAlign: "center" }}>
       <div
@@ -72,7 +72,7 @@ export function EmptyState() {
             boxShadow: `0 0 6px ${TOKENS.ok}`,
           }}
         />
-        Streak safe · {STREAK.current} days
+        Streak safe · {streak?.current ?? 0} days
       </div>
     </Card>
   );

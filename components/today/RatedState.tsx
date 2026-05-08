@@ -2,9 +2,33 @@ import { Card } from "../Card";
 import { DiffBadge } from "../DiffBadge";
 import { Icon } from "../Icon";
 import { TOKENS } from "../tokens";
-import type { Problem } from "@/lib/mockData";
+import type { Problem } from "@/lib/types";
 
-export function RatedState({ problem, rating }: { problem: Problem; rating: number }) {
+export type ScheduleResult = {
+  nextReviewAt: string;
+  intervalDays: number;
+  easeFactor: number;
+};
+
+const todayUtc = () => new Date().toISOString().split("T")[0]!;
+
+const daysUntil = (target: string) => {
+  const a = new Date(target);
+  const b = new Date(todayUtc());
+  return Math.max(0, Math.round((a.getTime() - b.getTime()) / 86400000));
+};
+
+export function RatedState({
+  problem,
+  rating,
+  schedule,
+}: {
+  problem: Problem;
+  rating: number;
+  schedule: ScheduleResult | null;
+}) {
+  const days = schedule ? daysUntil(schedule.nextReviewAt) : null;
+
   return (
     <Card padding={0} style={{ overflow: "hidden" }}>
       <div style={{ height: 3, background: TOKENS.ok }} />
@@ -88,7 +112,7 @@ export function RatedState({ problem, rating }: { problem: Problem; rating: numb
             <div style={{ fontSize: 13.5, color: "var(--text)", marginBottom: 2 }}>
               Next review in{" "}
               <span style={{ fontFamily: "var(--font-mono)", color: "var(--accent)" }}>
-                4 days
+                {days === null ? "—" : `${days} day${days === 1 ? "" : "s"}`}
               </span>
             </div>
             <div
@@ -98,7 +122,9 @@ export function RatedState({ problem, rating }: { problem: Problem; rating: numb
                 fontFamily: "var(--font-mono)",
               }}
             >
-              interval 4d · ease 2.30 · adjusted −2d for DP weakness
+              {schedule
+                ? `interval ${schedule.intervalDays}d · ease ${schedule.easeFactor.toFixed(2)}`
+                : ""}
             </div>
           </div>
         </div>

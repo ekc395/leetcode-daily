@@ -36,4 +36,5 @@ export const settings = pgTable("settings", {
   id: serial("id").primaryKey(),
   notificationsEnabled: boolean("notifications_enabled").notNull().default(true),
   notificationEmail: text("notification_email"),
+  lastSyncAt: timestamp("last_sync_at"),
 });

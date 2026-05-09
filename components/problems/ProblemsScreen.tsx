@@ -6,7 +6,7 @@ import { Card } from "../Card";
 import { DiffBadge } from "../DiffBadge";
 import { Tag } from "../Tag";
 import { TOKENS } from "../tokens";
-import type { Difficulty } from "@/lib/mockData";
+import type { Difficulty } from "@/lib/types";
 
 type SortKey = "recent" | "rating" | "next";
 

@@ -11,6 +11,7 @@ import { TodayProgress } from "./TodayProgress";
 import { EmptyState } from "./EmptyState";
 import { RatedState, type ScheduleResult } from "./RatedState";
 import type { AttemptSummary, Problem, Streak, TagWeakness } from "@/lib/types";
+import { todayPst } from "@/lib/dates";
 
 const formatLong = (d: Date) =>
   d.toLocaleDateString("en-US", {
@@ -18,8 +19,6 @@ const formatLong = (d: Date) =>
     month: "long",
     day: "numeric",
   });
-
-const todayUtc = () => new Date().toISOString().split("T")[0]!;
 
 type QueueResponse = {
   problem: Problem | null;
@@ -68,7 +67,7 @@ export function TodayScreen() {
   }, []);
 
   const today = new Date();
-  const todayStr = todayUtc();
+  const todayStr = todayPst();
 
   const handleLog = async () => {
     if (!queue?.problem || !rating) return;
@@ -213,7 +212,7 @@ export function TodayScreen() {
               </span>
             </span>
             <span style={{ width: 1, height: 12, background: "var(--border)" }} />
-            <span style={{ fontFamily: "var(--font-mono)" }}>9:00 UTC reset</span>
+            <span style={{ fontFamily: "var(--font-mono)" }}>9:00 PST reset</span>
           </div>
         }
       />

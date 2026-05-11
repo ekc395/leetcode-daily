@@ -3,6 +3,7 @@ import { sql } from "drizzle-orm";
 import { getAcceptedSubmissions, getProblemDetail } from "@/lib/leetcode/client";
 import { db } from "@/lib/db";
 import { problems, schedule, settings } from "@/lib/db/schema";
+import { todayPst, shiftDay } from "@/lib/dates";
 
 export async function runSync(): Promise<{ synced: number; lastSyncAt: Date }> {
     const username = process.env.LEETCODE_USERNAME;
@@ -23,9 +24,7 @@ export async function runSync(): Promise<{ synced: number; lastSyncAt: Date }> {
         unique.map(s => limit(() => getProblemDetail(s.titleSlug)))
     );
 
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    const tomorrowStr = tomorrow.toISOString().split("T")[0];
+    const tomorrowStr = shiftDay(todayPst(), 1);
 
     for (const problemDetail of details) {
         const [problem] = await db.insert(problems).values({

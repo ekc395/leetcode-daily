@@ -1,5 +1,6 @@
 import { db } from "@/lib/db";
 import { sql } from "drizzle-orm";
+import { todayPst, shiftDay } from "@/lib/dates";
 
 const SM2_PASS_THRESHOLD = 3;
 const SM2_EASE_BONUS = 0.1;
@@ -107,9 +108,7 @@ export async function computeNextSchedule(
     const avgWeakness = await getAverageTagWeakness(tags);
     const finalInterval = applyWeaknessModifier(sm2.intervalDays, avgWeakness);
 
-    const nextReviewAt = new Date();
-    nextReviewAt.setDate(nextReviewAt.getDate() + finalInterval);
-    const nextReviewAtStr = nextReviewAt.toISOString().split("T")[0]!;
+    const nextReviewAtStr = shiftDay(todayPst(), finalInterval);
 
     return {
         nextReviewAt: nextReviewAtStr,

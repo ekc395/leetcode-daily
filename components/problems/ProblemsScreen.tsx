@@ -7,6 +7,7 @@ import { DiffBadge } from "../DiffBadge";
 import { Tag } from "../Tag";
 import { TOKENS } from "../tokens";
 import type { Difficulty } from "@/lib/types";
+import { todayPst } from "@/lib/dates";
 
 type SortKey = "recent" | "rating" | "next";
 
@@ -33,8 +34,6 @@ type ProblemsResponse = {
   problems: ProblemRow[];
   tagWeakness: { tag: string; failures: number; total: number; weakness: number }[];
 };
-
-const todayUtc = () => new Date().toISOString().split("T")[0]!;
 
 const ratingColor = (n: number) => {
   if (n <= 2) return TOKENS.bad;
@@ -78,7 +77,7 @@ export function ProblemsScreen() {
     };
   }, []);
 
-  const today = todayUtc();
+  const today = todayPst();
   const problems = data?.problems ?? [];
   const tagWeaknessMap = React.useMemo(() => {
     const map = new Map<string, number>();

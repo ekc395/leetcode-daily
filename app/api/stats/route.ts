@@ -1,20 +1,11 @@
 import { sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { getAllTagWeakness } from "@/lib/scheduler/algorithm";
+import { todayPst, shiftDay } from "@/lib/dates";
 
 const HEATMAP_DAYS = 84;
 const RECALL_TREND_COUNT = 14;
 const UPCOMING_HORIZON_DAYS = 14;
-
-function todayUtc(): string {
-    return new Date().toISOString().split("T")[0]!;
-}
-
-function shiftDay(isoDate: string, days: number): string {
-    const d = new Date(`${isoDate}T00:00:00Z`);
-    d.setUTCDate(d.getUTCDate() + days);
-    return d.toISOString().split("T")[0]!;
-}
 
 const subDay = (isoDate: string, days: number) => shiftDay(isoDate, -days);
 
@@ -120,7 +111,7 @@ async function getUpcomingDue(today: string) {
 
 export async function GET() {
     try {
-        const today = todayUtc();
+        const today = todayPst();
         const [weakness, streak, recall, difficultyMix, activityGrid, upcoming] = await Promise.all([
             getAllTagWeakness(),
             getStreakStats(today),

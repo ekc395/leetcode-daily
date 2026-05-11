@@ -3,6 +3,7 @@ import { and, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { attempts, problems, schedule } from "@/lib/db/schema";
 import { computeNextSchedule } from "@/lib/scheduler/algorithm";
+import { todayPst } from "@/lib/dates";
 
 const SM2_PASS_THRESHOLD = 3;
 
@@ -11,10 +12,6 @@ const AttemptBodySchema = z.object({
     recallRating: z.number().int().min(1).max(5),
 });
 
-function todayUtc(): string {
-    return new Date().toISOString().split("T")[0]!;
-}
-
 export async function POST(request: Request) {
     try {
         const parsed = AttemptBodySchema.safeParse(await request.json());
@@ -22,7 +19,7 @@ export async function POST(request: Request) {
             return Response.json({ error: "Invalid body", issues: parsed.error.issues }, { status: 400 });
         }
         const { problemId, recallRating } = parsed.data;
-        const today = todayUtc();
+        const today = todayPst();
 
         const [row] = await db
             .select({

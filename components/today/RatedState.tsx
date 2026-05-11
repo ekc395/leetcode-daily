@@ -3,6 +3,7 @@ import { DiffBadge } from "../DiffBadge";
 import { Icon } from "../Icon";
 import { TOKENS } from "../tokens";
 import type { Problem } from "@/lib/types";
+import { todayPst } from "@/lib/dates";
 
 export type ScheduleResult = {
   nextReviewAt: string;
@@ -10,11 +11,9 @@ export type ScheduleResult = {
   easeFactor: number;
 };
 
-const todayUtc = () => new Date().toISOString().split("T")[0]!;
-
 const daysUntil = (target: string) => {
   const a = new Date(target);
-  const b = new Date(todayUtc());
+  const b = new Date(todayPst());
   return Math.max(0, Math.round((a.getTime() - b.getTime()) / 86400000));
 };
 
@@ -140,7 +139,7 @@ export function RatedState({
           }}
         >
           <Icon name="clock" size={13} />
-          Next problem unlocks tomorrow at 9:00 UTC
+          Next problem unlocks tomorrow at 9:00 PST
         </div>
       </div>
     </Card>

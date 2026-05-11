@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import { db } from "@/lib/db";
+import { todayPst } from "@/lib/dates";
 
 const DEFAULT_LIMIT = 5;
 const MAX_LIMIT = 50;
@@ -15,10 +16,6 @@ type Row = {
     ease_factor: number;
 };
 
-function todayUtc(): string {
-    return new Date().toISOString().split("T")[0]!;
-}
-
 export async function GET(request: Request) {
     try {
         const url = new URL(request.url);
@@ -26,7 +23,7 @@ export async function GET(request: Request) {
         const limit = Number.isFinite(limitParam) && limitParam > 0
             ? Math.min(limitParam, MAX_LIMIT)
             : DEFAULT_LIMIT;
-        const today = todayUtc();
+        const today = todayPst();
 
         const result = await db.execute<Row>(sql`
             SELECT

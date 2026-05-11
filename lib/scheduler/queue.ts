@@ -2,6 +2,7 @@ import { db } from "@/lib/db";
 import { problems, schedule, attempts } from "@/lib/db/schema";
 import { sql, and, eq, lte, isNull } from "drizzle-orm";
 import { DifficultySchema, type Difficulty } from "@/lib/leetcode/schemas";
+import { todayPst } from "@/lib/dates";
 
 const NEW_PROBLEM_EASE_FACTOR = 2.5;
 const NEW_PROBLEM_INTERVAL_DAYS = 0;
@@ -18,10 +19,6 @@ export type QueueProblem = {
 export type QueueResult =
     | { problem: QueueProblem; source: "due" | "new" }
     | { problem: null; source: null };
-
-function todayUtc(): string {
-    return new Date().toISOString().split("T")[0]!;
-}
 
 async function hasAttemptToday(today: string): Promise<boolean> {
     const rows = await db
@@ -137,7 +134,7 @@ async function assignNewProblem(): Promise<QueueProblem | null> {
 }
 
 export async function getOrAssignTodaysProblem(): Promise<QueueResult> {
-    const today = todayUtc();
+    const today = todayPst();
 
     const due = await findDueProblem(today);
     if (due) return { problem: due, source: "due" };

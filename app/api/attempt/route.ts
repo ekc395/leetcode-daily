@@ -3,6 +3,7 @@ import { and, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { attempts, problems, schedule } from "@/lib/db/schema";
 import { computeNextSchedule } from "@/lib/scheduler/algorithm";
+import { NEW_PROBLEM_EASE_FACTOR, NEW_PROBLEM_INTERVAL_DAYS } from "@/lib/scheduler/queue";
 import { todayPst } from "@/lib/dates";
 
 const SM2_PASS_THRESHOLD = 3;
@@ -21,19 +22,39 @@ export async function POST(request: Request) {
         const { problemId, recallRating } = parsed.data;
         const today = todayPst();
 
-        const [row] = await db
-            .select({
-                tags: problems.tags,
-                intervalDays: schedule.intervalDays,
-                easeFactor: schedule.easeFactor,
-            })
+        const [problem] = await db
+            .select({ tags: problems.tags })
             .from(problems)
-            .innerJoin(schedule, eq(schedule.problemId, problems.id))
             .where(eq(problems.id, problemId))
             .limit(1);
 
-        if (!row) {
-            return Response.json({ error: "Problem has no schedule row" }, { status: 404 });
+        if (!problem) {
+            return Response.json({ error: "Problem not found" }, { status: 404 });
+        }
+
+        const [existingSchedule] = await db
+            .select({
+                intervalDays: schedule.intervalDays,
+                easeFactor: schedule.easeFactor,
+            })
+            .from(schedule)
+            .where(eq(schedule.problemId, problemId))
+            .limit(1);
+
+        let currentState: { intervalDays: number; easeFactor: number };
+        if (existingSchedule) {
+            currentState = existingSchedule;
+        } else {
+            await db.insert(schedule).values({
+                problemId,
+                nextReviewAt: today,
+                intervalDays: NEW_PROBLEM_INTERVAL_DAYS,
+                easeFactor: NEW_PROBLEM_EASE_FACTOR,
+            });
+            currentState = {
+                intervalDays: NEW_PROBLEM_INTERVAL_DAYS,
+                easeFactor: NEW_PROBLEM_EASE_FACTOR,
+            };
         }
 
         const [existing] = await db
@@ -54,8 +75,8 @@ export async function POST(request: Request) {
         });
 
         const next = await computeNextSchedule(
-            row.tags,
-            { intervalDays: row.intervalDays, easeFactor: row.easeFactor },
+            problem.tags,
+            currentState,
             recallRating,
         );
 

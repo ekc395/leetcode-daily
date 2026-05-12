@@ -4,8 +4,8 @@ import { sql, and, eq, lte, isNull } from "drizzle-orm";
 import { DifficultySchema, type Difficulty } from "@/lib/leetcode/schemas";
 import { todayPst } from "@/lib/dates";
 
-const NEW_PROBLEM_EASE_FACTOR = 2.5;
-const NEW_PROBLEM_INTERVAL_DAYS = 0;
+export const NEW_PROBLEM_EASE_FACTOR = 2.5;
+export const NEW_PROBLEM_INTERVAL_DAYS = 0;
 const SM2_PASS_THRESHOLD = 3;
 
 export type QueueProblem = {

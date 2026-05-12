@@ -10,6 +10,7 @@ import { SchedulePeek } from "./SchedulePeek";
 import { TodayProgress } from "./TodayProgress";
 import { EmptyState } from "./EmptyState";
 import { RatedState, type ScheduleResult } from "./RatedState";
+import { ManualLogPanel } from "./ManualLogPanel";
 import type { AttemptSummary, Problem, Streak, TagWeakness } from "@/lib/types";
 import { todayPst } from "@/lib/dates";
 
@@ -110,14 +111,24 @@ export function TodayScreen() {
         </Card>
       );
     }
-    if (!queue.problem) return <EmptyState streak={stats?.streak ?? null} />;
+    if (!queue.problem) {
+      return (
+        <>
+          <EmptyState streak={stats?.streak ?? null} />
+          <ManualLogPanel />
+        </>
+      );
+    }
     if (submitted && rating) {
       return (
-        <RatedState
-          problem={queue.problem}
-          rating={rating}
-          schedule={submittedSchedule}
-        />
+        <>
+          <RatedState
+            problem={queue.problem}
+            rating={rating}
+            schedule={submittedSchedule}
+          />
+          <ManualLogPanel />
+        </>
       );
     }
     return (

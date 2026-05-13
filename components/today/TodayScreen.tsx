@@ -193,6 +193,7 @@ export function TodayScreen() {
             </div>
           )}
         </Card>
+        <ManualLogPanel />
       </>
     );
   };

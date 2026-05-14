@@ -255,7 +255,7 @@ export function TodayScreen() {
             today={todayStr}
             streak={stats?.streak ?? null}
           />
-          <SchedulePeek />
+          <SchedulePeek excludeId={queue?.problem?.id ?? null} />
         </div>
       </div>
     </>

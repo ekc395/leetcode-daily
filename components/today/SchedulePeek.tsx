@@ -3,6 +3,7 @@
 import * as React from "react";
 import { Card } from "../Card";
 import { DiffBadge } from "../DiffBadge";
+import { TOKENS } from "../tokens";
 import type { Difficulty } from "@/lib/types";
 
 type UpcomingItem = {
@@ -19,13 +20,19 @@ type UpcomingResponse = {
   upcoming: UpcomingItem[];
 };
 
-export function SchedulePeek() {
+type Props = {
+  excludeId?: number | null;
+};
+
+export function SchedulePeek({ excludeId }: Props = {}) {
   const [data, setData] = React.useState<UpcomingResponse | null>(null);
   const [loadError, setLoadError] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     let cancelled = false;
-    fetch("/api/upcoming?limit=5")
+    const params = new URLSearchParams({ limit: "5" });
+    if (excludeId != null) params.set("excludeId", String(excludeId));
+    fetch(`/api/upcoming?${params.toString()}`)
       .then(async (r) => {
         if (!r.ok) throw new Error(`Upcoming returned ${r.status}`);
         return r.json();
@@ -39,7 +46,7 @@ export function SchedulePeek() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [excludeId]);
 
   const upcoming = data?.upcoming ?? [];
   const today = data?.today;
@@ -87,6 +94,9 @@ export function SchedulePeek() {
                   (new Date(p.nextReviewAt).getTime() - new Date(today).getTime()) / 86400000,
                 )
               : 0;
+            const isOverdue = days < 0;
+            const isDueToday = days === 0;
+            const labelColor = isOverdue ? TOKENS.bad : "var(--text-dim)";
             return (
               <div
                 key={p.id}
@@ -100,7 +110,7 @@ export function SchedulePeek() {
               >
                 <div
                   style={{
-                    flex: "0 0 32px",
+                    flex: "0 0 48px",
                     fontFamily: "var(--font-mono)",
                     fontSize: 11,
                     color: "var(--text-mute)",
@@ -108,8 +118,22 @@ export function SchedulePeek() {
                     lineHeight: 1.2,
                   }}
                 >
-                  <div style={{ color: "var(--text-dim)", fontSize: 12 }}>+{days}</div>
-                  <div>day{days === 1 ? "" : "s"}</div>
+                  {isOverdue ? (
+                    <>
+                      <div style={{ color: labelColor, fontSize: 12 }}>{days}</div>
+                      <div style={{ color: labelColor }}>overdue</div>
+                    </>
+                  ) : isDueToday ? (
+                    <>
+                      <div style={{ color: labelColor, fontSize: 12 }}>·</div>
+                      <div>due today</div>
+                    </>
+                  ) : (
+                    <>
+                      <div style={{ color: labelColor, fontSize: 12 }}>+{days}</div>
+                      <div>day{days === 1 ? "" : "s"}</div>
+                    </>
+                  )}
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div

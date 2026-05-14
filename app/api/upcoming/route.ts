@@ -23,6 +23,10 @@ export async function GET(request: Request) {
         const limit = Number.isFinite(limitParam) && limitParam > 0
             ? Math.min(limitParam, MAX_LIMIT)
             : DEFAULT_LIMIT;
+        const excludeIdParam = Number(url.searchParams.get("excludeId"));
+        const excludeId = Number.isInteger(excludeIdParam) && excludeIdParam > 0
+            ? excludeIdParam
+            : null;
         const today = todayPst();
 
         const result = await db.execute<Row>(sql`
@@ -37,7 +41,8 @@ export async function GET(request: Request) {
                 s.ease_factor
             FROM schedule s
             JOIN problems p ON p.id = s.problem_id
-            WHERE s.next_review_at > ${today}
+            WHERE ${excludeId != null ? sql`s.problem_id != ${excludeId} AND` : sql``}
+                s.next_review_at IS NOT NULL
             ORDER BY s.next_review_at ASC
             LIMIT ${limit}
         `);

@@ -17,7 +17,11 @@ type SearchResponse = {
   problems: SearchResult[];
 };
 
-export function ManualLogPanel() {
+type ManualLogPanelProps = {
+  onLogged?: () => void;
+};
+
+export function ManualLogPanel({ onLogged }: ManualLogPanelProps = {}) {
   const [query, setQuery] = React.useState("");
   const [results, setResults] = React.useState<SearchResult[]>([]);
   const [searching, setSearching] = React.useState(false);
@@ -97,6 +101,7 @@ export function ManualLogPanel() {
       setRating(null);
       setQuery("");
       setResults([]);
+      onLogged?.();
     } catch (e: unknown) {
       setSubmitError(e instanceof Error ? e.message : "Log attempt failed");
     } finally {

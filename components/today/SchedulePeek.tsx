@@ -22,9 +22,10 @@ type UpcomingResponse = {
 
 type Props = {
   excludeId?: number | null;
+  refreshKey?: number;
 };
 
-export function SchedulePeek({ excludeId }: Props = {}) {
+export function SchedulePeek({ excludeId, refreshKey = 0 }: Props = {}) {
   const [data, setData] = React.useState<UpcomingResponse | null>(null);
   const [loadError, setLoadError] = React.useState<string | null>(null);
 
@@ -46,7 +47,7 @@ export function SchedulePeek({ excludeId }: Props = {}) {
     return () => {
       cancelled = true;
     };
-  }, [excludeId]);
+  }, [excludeId, refreshKey]);
 
   const upcoming = data?.upcoming ?? [];
   const today = data?.today;

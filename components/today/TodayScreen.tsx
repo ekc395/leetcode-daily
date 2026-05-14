@@ -41,6 +41,11 @@ export function TodayScreen() {
   const [submittedSchedule, setSubmittedSchedule] = React.useState<ScheduleResult | null>(null);
   const [submitted, setSubmitted] = React.useState(false);
   const [logging, setLogging] = React.useState(false);
+  const [scheduleRefreshKey, setScheduleRefreshKey] = React.useState(0);
+  const bumpScheduleRefresh = React.useCallback(
+    () => setScheduleRefreshKey((k) => k + 1),
+    [],
+  );
 
   React.useEffect(() => {
     let cancelled = false;
@@ -87,6 +92,7 @@ export function TodayScreen() {
       const body = (await res.json()) as { schedule?: ScheduleResult };
       setSubmittedSchedule(body.schedule ?? null);
       setSubmitted(true);
+      bumpScheduleRefresh();
     } catch (e: unknown) {
       setSubmitError(e instanceof Error ? e.message : "Log attempt failed");
     } finally {
@@ -115,7 +121,7 @@ export function TodayScreen() {
       return (
         <>
           <EmptyState streak={stats?.streak ?? null} />
-          <ManualLogPanel />
+          <ManualLogPanel onLogged={bumpScheduleRefresh} />
         </>
       );
     }
@@ -127,7 +133,7 @@ export function TodayScreen() {
             rating={rating}
             schedule={submittedSchedule}
           />
-          <ManualLogPanel />
+          <ManualLogPanel onLogged={bumpScheduleRefresh} />
         </>
       );
     }
@@ -255,7 +261,10 @@ export function TodayScreen() {
             today={todayStr}
             streak={stats?.streak ?? null}
           />
-          <SchedulePeek excludeId={queue?.problem?.id ?? null} />
+          <SchedulePeek
+            excludeId={queue?.problem?.id ?? null}
+            refreshKey={scheduleRefreshKey}
+          />
         </div>
       </div>
     </>

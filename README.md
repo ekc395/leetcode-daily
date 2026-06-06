@@ -12,7 +12,7 @@ One problem per day. Rate it before the next one unlocks.
 
 1. **Incomplete review** — a problem due today (or earlier) with no attempt logged today. Blocks everything else until rated.
 2. **SR due** — the earliest scheduled problem with `next_review_at <= today`.
-3. **New problem** — picks from the unseeded LeetCode bank, matching your weakest tag at an adaptive difficulty, and creates a schedule row due today.
+3. **New problem** — picks an unseeded problem from the [Neetcode 150](https://leetcode.com/problem-list/plakya4j/), matching your weakest tag at an adaptive difficulty, and creates a schedule row due today.
 4. **Nothing** — you're ahead of schedule.
 
 Missing a day has no penalty. The same problem reappears the next day.
@@ -28,7 +28,7 @@ Weaker topics resurface faster; stronger ones space out.
 
 ### Adaptive difficulty (new problem selection)
 
-When the queue assigns a new problem from the unseeded bank, difficulty is derived per-tag from your attempt history on Medium problems in that tag:
+When the queue assigns a new problem from the Neetcode 150, difficulty is derived per-tag from your attempt history on Medium problems in that tag:
 
 | Avg rating on Medium | Assigned difficulty |
 |---|---|
@@ -43,6 +43,8 @@ Two kinds of problems coexist in the `problems` table:
 
 - **Solved** — synced from your LeetCode accepted submissions via `/api/sync`. Each gets a head-start schedule row (`interval_days = 1`, `ease_factor = 2.5`, `next_review_at = tomorrow`).
 - **Unseeded** — loaded from the full LeetCode problem bank via `/api/seed`. No schedule row until the queue assigns them as a "new problem".
+
+New-problem selection is restricted to the [Neetcode 150](https://leetcode.com/problem-list/plakya4j/): `/api/seed/neetcode150` marks those problems with an `in_neetcode150` flag (and populates their tags), and the queue only assigns flagged problems as new problems. Already-scheduled problems outside the list still come up for review — only *new* picks are restricted. Because the upstream API rate-limits at ~80 requests/hour, the route is incremental and idempotent: re-run it until it reports `totalSeeded: 150`.
 
 ### Daily email
 
@@ -83,6 +85,7 @@ A Vercel cron job fires daily at 17:00 UTC (9 AM PST) → `GET /api/cron/daily-r
 | `/api/settings/reset` | POST | Reset local schedule/attempt data |
 | `/api/sync` | POST | Pull accepted submissions from alfa-leetcode-api, upsert DB |
 | `/api/seed` | POST | One-time seed of the full LeetCode problem bank |
+| `/api/seed/neetcode150` | POST | Flag + tag the Neetcode 150 (incremental; re-run until `totalSeeded: 150`) |
 | `/api/cron/daily-reminder` | GET | Vercel cron trigger — sends the daily email if enabled |
 
 ## Database schema
@@ -128,9 +131,10 @@ npx drizzle-kit migrate    # apply migrations to DATABASE_URL
 1. Create a Neon database and set `DATABASE_URL`.
 2. Apply migrations: `npx drizzle-kit migrate`.
 3. Set `LEETCODE_USERNAME` and the Gmail / notification env vars.
-4. Hit `POST /api/seed` once to load the unseeded problem bank (required for the queue's new-problem path).
-5. Hit `POST /api/sync` (or use the Sync button on `/settings`) to import your accepted submissions.
-6. Open the app — your earliest-synced problem will be due tomorrow, or a new problem will be assigned today from the unseeded bank.
+4. Hit `POST /api/seed` once to load the unseeded problem bank.
+5. Hit `POST /api/seed/neetcode150` to flag + tag the Neetcode 150 (the new-problem pool). The upstream API rate-limits at ~80 requests/hour, so re-run it until it reports `totalSeeded: 150`.
+6. Hit `POST /api/sync` (or use the Sync button on `/settings`) to import your accepted submissions.
+7. Open the app — your earliest-synced problem will be due tomorrow, or a new problem will be assigned today from the Neetcode 150.
 
 ## Deployment
 

@@ -97,6 +97,7 @@ async function pickUnseededByTagAndDifficulty(
         .where(
             and(
                 isNull(schedule.problemId),
+                eq(problems.inNeetcode150, true),
                 eq(problems.difficulty, difficulty),
                 sql`${problems.tags} ? ${tag}`,
             ),
@@ -116,7 +117,7 @@ async function pickFallbackEasy(): Promise<QueueProblem | null> {
         })
         .from(problems)
         .leftJoin(schedule, eq(schedule.problemId, problems.id))
-        .where(and(isNull(schedule.problemId), eq(problems.difficulty, "Easy")))
+        .where(and(isNull(schedule.problemId), eq(problems.inNeetcode150, true), eq(problems.difficulty, "Easy")))
         .limit(1);
     return rows[0] ?? null;
 }

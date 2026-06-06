@@ -1,0 +1,1 @@
+ALTER TABLE "problems" ADD COLUMN "in_neetcode150" boolean DEFAULT false NOT NULL;

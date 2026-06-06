@@ -7,6 +7,7 @@ export const problems = pgTable("problems", {
   title: text("title").notNull(),
   difficulty: text("difficulty").notNull(), // "Easy" | "Medium" | "Hard"
   tags: jsonb("tags").$type<string[]>().notNull().default([]),
+  inNeetcode150: boolean("in_neetcode150").notNull().default(false),
 }, (table) => [
   index("problems_tags_gin_idx").using("gin", table.tags),
   check("difficulty_check", sql`${table.difficulty} IN ('Easy', 'Medium', 'Hard')`),

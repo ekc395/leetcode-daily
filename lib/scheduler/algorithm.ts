@@ -1,8 +1,13 @@
 import { db } from "@/lib/db";
 import { sql } from "drizzle-orm";
 import { todayPst, shiftDay } from "@/lib/dates";
+import type { Difficulty } from "@/lib/types";
 
 const SM2_PASS_THRESHOLD = 3;
+const LEVEL_PROMOTE_AVG = 4;
+const LEVEL_DEMOTE_AVG = 2;
+const LEVEL_MIN_ATTEMPTS = 3;
+const LADDER: Difficulty[] = ["Easy", "Medium", "Hard"];
 const SM2_EASE_BONUS = 0.1;
 const SM2_EASE_PENALTY_SCALE = 0.08;
 const SM2_MIN_EASE_FACTOR = 1.3;
@@ -71,6 +76,55 @@ export async function getAllTagWeakness(): Promise<TagWeaknessRow[]> {
         total: Number(r.total),
         weakness: Number(r.weakness ?? 0),
     }));
+}
+
+export type TagLevelStats = Partial<Record<Difficulty, { avg: number; count: number }>>;
+
+export function computeTagLevel(stats: TagLevelStats): Difficulty {
+    const count = (d: Difficulty) => stats[d]?.count ?? 0;
+    const promoted = (d: Difficulty) =>
+        count(d) >= LEVEL_MIN_ATTEMPTS && stats[d]!.avg >= LEVEL_PROMOTE_AVG;
+    const demoted = (d: Difficulty) =>
+        count(d) >= LEVEL_MIN_ATTEMPTS && stats[d]!.avg <= LEVEL_DEMOTE_AVG;
+
+    let i = count("Hard") > 0 ? 2 : count("Medium") > 0 ? 1 : 0;
+    while (i > 0 && demoted(LADDER[i])) i--;
+    while (i < 2 && promoted(LADDER[i]) && !demoted(LADDER[i + 1])) i++;
+    return LADDER[i];
+}
+
+// Averages are all-time, so recovery after a demotion is gradual: due reviews
+// at the higher level keep contributing to that level's average.
+export async function getAllTagLevels(): Promise<Record<string, Difficulty>> {
+    const result = await db.execute<{
+        tag: string;
+        difficulty: Difficulty;
+        avg_rating: number;
+        total: number;
+    }>(sql`
+        SELECT
+            tag.value AS tag,
+            p.difficulty AS difficulty,
+            AVG(a.recall_rating)::float AS avg_rating,
+            COUNT(*)::int AS total
+        FROM attempts a
+        JOIN problems p ON p.id = a.problem_id
+        CROSS JOIN LATERAL jsonb_array_elements_text(p.tags) AS tag(value)
+        GROUP BY tag.value, p.difficulty
+    `);
+
+    const statsByTag = new Map<string, TagLevelStats>();
+    for (const r of result.rows) {
+        const stats = statsByTag.get(r.tag) ?? {};
+        stats[r.difficulty] = { avg: Number(r.avg_rating), count: Number(r.total) };
+        statsByTag.set(r.tag, stats);
+    }
+
+    const levels: Record<string, Difficulty> = {};
+    for (const [tag, stats] of statsByTag) {
+        levels[tag] = computeTagLevel(stats);
+    }
+    return levels;
 }
 
 export async function getAverageTagWeakness(tags: string[]): Promise<number> {

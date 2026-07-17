@@ -16,6 +16,7 @@ type TagWeakness = {
   failures: number;
   total: number;
   weakness: number;
+  level: "Easy" | "Medium" | "Hard";
 };
 
 type StatsResponse = {
@@ -149,7 +150,7 @@ function StatsContent({ data }: { data: StatsResponse }) {
             <div
               style={{
                 display: "grid",
-                gridTemplateColumns: "180px 1fr 80px",
+                gridTemplateColumns: "240px 1fr 80px",
                 gap: 18,
                 padding: "0 0 8px",
                 fontSize: 10,

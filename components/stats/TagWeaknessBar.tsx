@@ -1,16 +1,20 @@
 import { TOKENS } from "../tokens";
+import { DiffBadge } from "../DiffBadge";
+import type { Difficulty } from "@/lib/types";
 
 export function TagWeaknessBar({
   tag,
   failures,
   total,
   weakness,
+  level,
   isMax,
 }: {
   tag: string;
   failures: number;
   total: number;
   weakness: number;
+  level: Difficulty;
   isMax: boolean;
 }) {
   const c =
@@ -19,7 +23,7 @@ export function TagWeaknessBar({
     <div
       style={{
         display: "grid",
-        gridTemplateColumns: "180px 1fr 80px",
+        gridTemplateColumns: "240px 1fr 80px",
         gap: 18,
         alignItems: "center",
         padding: "14px 0",
@@ -49,6 +53,9 @@ export function TagWeaknessBar({
           }}
         >
           {tag}
+        </span>
+        <span style={{ flexShrink: 0 }}>
+          <DiffBadge difficulty={level} size="sm" />
         </span>
       </div>
       <div

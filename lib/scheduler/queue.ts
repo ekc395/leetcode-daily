@@ -56,13 +56,26 @@ async function findDueProblem(today: string): Promise<QueueProblem | null> {
 
 async function getTagWeaknessRanking(): Promise<string[]> {
     const result = await db.execute<{ tag: string }>(sql`
-        SELECT tag.value AS tag
-        FROM attempts a
-        JOIN problems p ON p.id = a.problem_id
-        CROSS JOIN LATERAL jsonb_array_elements_text(p.tags) AS tag(value)
-        GROUP BY tag.value
-        ORDER BY (COUNT(*) FILTER (WHERE a.recall_rating < ${SM2_PASS_THRESHOLD}))::float
-                 / NULLIF(COUNT(*), 0)::float DESC NULLS LAST
+        WITH attempt_stats AS (
+            SELECT
+                tag.value AS tag,
+                (COUNT(*) FILTER (WHERE a.recall_rating < ${SM2_PASS_THRESHOLD}))::float
+                    / NULLIF(COUNT(*), 0)::float AS weakness
+            FROM attempts a
+            JOIN problems p ON p.id = a.problem_id
+            CROSS JOIN LATERAL jsonb_array_elements_text(p.tags) AS tag(value)
+            GROUP BY tag.value
+        ),
+        pool_tags AS (
+            SELECT DISTINCT tag.value AS tag
+            FROM problems p
+            CROSS JOIN LATERAL jsonb_array_elements_text(p.tags) AS tag(value)
+            WHERE p.in_neetcode150 = true
+        )
+        SELECT pt.tag
+        FROM pool_tags pt
+        LEFT JOIN attempt_stats s ON s.tag = pt.tag
+        ORDER BY (s.tag IS NULL) DESC, s.weakness DESC NULLS LAST
     `);
     return result.rows.map(r => r.tag);
 }

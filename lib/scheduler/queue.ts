@@ -2,6 +2,7 @@ import { db } from "@/lib/db";
 import { problems, schedule, attempts } from "@/lib/db/schema";
 import { sql, and, eq, lte, isNull } from "drizzle-orm";
 import { DifficultySchema, type Difficulty } from "@/lib/leetcode/schemas";
+import { getAllTagLevels } from "@/lib/scheduler/algorithm";
 import { todayPst } from "@/lib/dates";
 
 export const NEW_PROBLEM_EASE_FACTOR = 2.5;
@@ -66,20 +67,6 @@ async function getTagWeaknessRanking(): Promise<string[]> {
     return result.rows.map(r => r.tag);
 }
 
-async function getAdaptiveDifficulty(tag: string): Promise<Difficulty> {
-    const result = await db.execute<{ avg_rating: number | null; total: number }>(sql`
-        SELECT AVG(a.recall_rating)::float AS avg_rating, COUNT(*)::int AS total
-        FROM attempts a
-        JOIN problems p ON p.id = a.problem_id
-        WHERE p.difficulty = 'Medium' AND p.tags ? ${tag}
-    `);
-    const row = result.rows[0];
-    if (!row || row.total === 0 || row.avg_rating == null) return "Easy";
-    if (row.avg_rating >= 4) return "Hard";
-    if (row.avg_rating <= 2) return "Easy";
-    return "Medium";
-}
-
 async function pickUnseededByTagAndDifficulty(
     tag: string,
     difficulty: Difficulty,
@@ -124,9 +111,10 @@ async function pickFallbackEasy(): Promise<QueueProblem | null> {
 
 async function assignNewProblem(): Promise<QueueProblem | null> {
     const ranking = await getTagWeaknessRanking();
+    const levels = await getAllTagLevels();
 
     for (const tag of ranking) {
-        const difficulty = await getAdaptiveDifficulty(tag);
+        const difficulty = levels[tag] ?? "Easy";
         const picked = await pickUnseededByTagAndDifficulty(tag, difficulty);
         if (picked) return picked;
     }

@@ -28,6 +28,14 @@ type Props = {
 export function SchedulePeek({ excludeId, refreshKey = 0 }: Props = {}) {
   const [data, setData] = React.useState<UpcomingResponse | null>(null);
   const [loadError, setLoadError] = React.useState<string | null>(null);
+  const [expanded, setExpanded] = React.useState<Set<number>>(new Set());
+  const toggle = (id: number) =>
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
 
   React.useEffect(() => {
     let cancelled = false;
@@ -98,6 +106,7 @@ export function SchedulePeek({ excludeId, refreshKey = 0 }: Props = {}) {
             const isOverdue = days < 0;
             const isDueToday = days === 0;
             const labelColor = isOverdue ? TOKENS.bad : "var(--text-dim)";
+            const isExpanded = expanded.has(p.id);
             return (
               <div
                 key={p.id}
@@ -138,12 +147,15 @@ export function SchedulePeek({ excludeId, refreshKey = 0 }: Props = {}) {
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div
+                    onClick={() => toggle(p.id)}
                     style={{
                       fontSize: 12.5,
                       color: "var(--text)",
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      whiteSpace: "nowrap",
+                      overflow: isExpanded ? "visible" : "hidden",
+                      textOverflow: isExpanded ? "clip" : "ellipsis",
+                      whiteSpace: isExpanded ? "normal" : "nowrap",
+                      cursor: "pointer",
+                      userSelect: "none",
                     }}
                   >
                     {p.title}

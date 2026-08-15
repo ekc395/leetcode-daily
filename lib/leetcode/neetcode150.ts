@@ -179,7 +179,7 @@ export const NEETCODE_150_SLUGS: string[] = [
     "set-matrix-zeroes",
     "happy-number",
     "plus-one",
-    "pow-x-n",
+    "powx-n",
     "multiply-strings",
     "detect-squares",
 

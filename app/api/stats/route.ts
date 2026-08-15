@@ -1,6 +1,6 @@
 import { sql } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { getAllTagWeakness, getAllTagLevels } from "@/lib/scheduler/algorithm";
+import { getAllTagWeakness, getAllTagLevels, getGlobalLevel } from "@/lib/scheduler/algorithm";
 import { todayPst, shiftDay } from "@/lib/dates";
 
 const HEATMAP_DAYS = 84;
@@ -112,7 +112,7 @@ async function getUpcomingDue(today: string) {
 export async function GET() {
     try {
         const today = todayPst();
-        const [weakness, streak, recall, difficultyMix, activityGrid, upcoming, tagLevels] = await Promise.all([
+        const [weakness, streak, recall, difficultyMix, activityGrid, upcoming, tagLevels, globalLevel] = await Promise.all([
             getAllTagWeakness(),
             getStreakStats(today),
             getRecallTrend(),
@@ -120,9 +120,10 @@ export async function GET() {
             getActivityGrid(today),
             getUpcomingDue(today),
             getAllTagLevels(),
+            getGlobalLevel(),
         ]);
         return Response.json({
-            weakness: weakness.map(w => ({ ...w, level: tagLevels[w.tag] ?? "Easy" })),
+            weakness: weakness.map(w => ({ ...w, level: tagLevels[w.tag] ?? globalLevel })),
             streak,
             avgRecall: recall.avgRecall,
             recallTrend: recall.recallTrend,

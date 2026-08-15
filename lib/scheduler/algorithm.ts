@@ -7,6 +7,11 @@ const SM2_PASS_THRESHOLD = 3;
 const LEVEL_PROMOTE_AVG = 4;
 const LEVEL_DEMOTE_AVG = 2;
 const LEVEL_MIN_ATTEMPTS = 3;
+// Levels are judged on recent evidence only: at most the last N attempts per
+// (tag, difficulty), and nothing older than D days. Stale ratings expiring is
+// what lets a tag demoted long ago be retried at the higher level.
+const LEVEL_WINDOW_ATTEMPTS = 5;
+const LEVEL_WINDOW_DAYS = 60;
 const LADDER: Difficulty[] = ["Easy", "Medium", "Hard"];
 const SM2_EASE_BONUS = 0.1;
 const SM2_EASE_PENALTY_SCALE = 0.08;
@@ -82,35 +87,54 @@ export type TagLevelStats = Partial<Record<Difficulty, { avg: number; count: num
 
 export function computeTagLevel(stats: TagLevelStats): Difficulty {
     const count = (d: Difficulty) => stats[d]?.count ?? 0;
-    const promoted = (d: Difficulty) =>
-        count(d) >= LEVEL_MIN_ATTEMPTS && stats[d]!.avg >= LEVEL_PROMOTE_AVG;
-    const demoted = (d: Difficulty) =>
-        count(d) >= LEVEL_MIN_ATTEMPTS && stats[d]!.avg <= LEVEL_DEMOTE_AVG;
+    const established = (d: Difficulty) => count(d) >= LEVEL_MIN_ATTEMPTS;
+    const promoted = (d: Difficulty) => established(d) && stats[d]!.avg >= LEVEL_PROMOTE_AVG;
+    const demoted = (d: Difficulty) => established(d) && stats[d]!.avg <= LEVEL_DEMOTE_AVG;
 
-    let i = count("Hard") > 0 ? 2 : count("Medium") > 0 ? 1 : 0;
+    // Start at the highest level with enough recent evidence to judge, so a
+    // stray attempt or two at a level no longer sets it on its own.
+    let i = 0;
+    for (let d = LADDER.length - 1; d > 0; d--) {
+        if (established(LADDER[d])) {
+            i = d;
+            break;
+        }
+    }
+    while (i < 2 && promoted(LADDER[i])) i++;
     while (i > 0 && demoted(LADDER[i])) i--;
-    while (i < 2 && promoted(LADDER[i]) && !demoted(LADDER[i + 1])) i++;
     return LADDER[i];
 }
 
-// Averages are all-time, so recovery after a demotion is gradual: due reviews
-// at the higher level keep contributing to that level's average.
 export async function getAllTagLevels(): Promise<Record<string, Difficulty>> {
+    const since = shiftDay(todayPst(), -LEVEL_WINDOW_DAYS);
     const result = await db.execute<{
         tag: string;
         difficulty: Difficulty;
         avg_rating: number;
         total: number;
     }>(sql`
+        WITH recent AS (
+            SELECT
+                tag.value AS tag,
+                p.difficulty AS difficulty,
+                a.recall_rating,
+                ROW_NUMBER() OVER (
+                    PARTITION BY tag.value, p.difficulty
+                    ORDER BY a.attempted_at DESC, a.id DESC
+                ) AS rn
+            FROM attempts a
+            JOIN problems p ON p.id = a.problem_id
+            CROSS JOIN LATERAL jsonb_array_elements_text(p.tags) AS tag(value)
+            WHERE a.attempted_at >= ${since}
+        )
         SELECT
-            tag.value AS tag,
-            p.difficulty AS difficulty,
-            AVG(a.recall_rating)::float AS avg_rating,
+            tag,
+            difficulty,
+            AVG(recall_rating)::float AS avg_rating,
             COUNT(*)::int AS total
-        FROM attempts a
-        JOIN problems p ON p.id = a.problem_id
-        CROSS JOIN LATERAL jsonb_array_elements_text(p.tags) AS tag(value)
-        GROUP BY tag.value, p.difficulty
+        FROM recent
+        WHERE rn <= ${LEVEL_WINDOW_ATTEMPTS}
+        GROUP BY tag, difficulty
     `);
 
     const statsByTag = new Map<string, TagLevelStats>();
@@ -125,6 +149,33 @@ export async function getAllTagLevels(): Promise<Record<string, Difficulty>> {
         levels[tag] = computeTagLevel(stats);
     }
     return levels;
+}
+
+// Level for a tag with no recent history of its own, derived from the same
+// ladder over the whole recent record. Without this, an untouched tag would
+// fall back to Easy no matter how strong everything else looks.
+export async function getGlobalLevel(): Promise<Difficulty> {
+    const since = shiftDay(todayPst(), -LEVEL_WINDOW_DAYS);
+    const result = await db.execute<{
+        difficulty: Difficulty;
+        avg_rating: number;
+        total: number;
+    }>(sql`
+        SELECT
+            p.difficulty AS difficulty,
+            AVG(a.recall_rating)::float AS avg_rating,
+            COUNT(*)::int AS total
+        FROM attempts a
+        JOIN problems p ON p.id = a.problem_id
+        WHERE a.attempted_at >= ${since}
+        GROUP BY p.difficulty
+    `);
+
+    const stats: TagLevelStats = {};
+    for (const r of result.rows) {
+        stats[r.difficulty] = { avg: Number(r.avg_rating), count: Number(r.total) };
+    }
+    return computeTagLevel(stats);
 }
 
 export async function getAverageTagWeakness(tags: string[]): Promise<number> {

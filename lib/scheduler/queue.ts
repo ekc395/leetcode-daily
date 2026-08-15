@@ -2,7 +2,7 @@ import { db } from "@/lib/db";
 import { problems, schedule, attempts } from "@/lib/db/schema";
 import { sql, and, eq, lte, isNull } from "drizzle-orm";
 import { DifficultySchema, type Difficulty } from "@/lib/leetcode/schemas";
-import { getAllTagLevels } from "@/lib/scheduler/algorithm";
+import { getAllTagLevels, getGlobalLevel } from "@/lib/scheduler/algorithm";
 import { todayPst } from "@/lib/dates";
 
 export const NEW_PROBLEM_EASE_FACTOR = 2.5;
@@ -124,10 +124,10 @@ async function pickFallbackEasy(): Promise<QueueProblem | null> {
 
 async function assignNewProblem(): Promise<QueueProblem | null> {
     const ranking = await getTagWeaknessRanking();
-    const levels = await getAllTagLevels();
+    const [levels, globalLevel] = await Promise.all([getAllTagLevels(), getGlobalLevel()]);
 
     for (const tag of ranking) {
-        const difficulty = levels[tag] ?? "Easy";
+        const difficulty = levels[tag] ?? globalLevel;
         const picked = await pickUnseededByTagAndDifficulty(tag, difficulty);
         if (picked) return picked;
     }

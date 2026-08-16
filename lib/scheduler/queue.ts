@@ -2,7 +2,7 @@ import { db } from "@/lib/db";
 import { problems, schedule, attempts } from "@/lib/db/schema";
 import { sql, and, eq, lte, isNull } from "drizzle-orm";
 import { DifficultySchema, type Difficulty } from "@/lib/leetcode/schemas";
-import { getAllTagLevels, getGlobalLevel } from "@/lib/scheduler/algorithm";
+import { getAllTagLevels, getGlobalLevel, attemptWindowStart } from "@/lib/scheduler/algorithm";
 import { todayPst } from "@/lib/dates";
 
 export const NEW_PROBLEM_EASE_FACTOR = 2.5;
@@ -64,6 +64,7 @@ async function getTagWeaknessRanking(): Promise<string[]> {
             FROM attempts a
             JOIN problems p ON p.id = a.problem_id
             CROSS JOIN LATERAL jsonb_array_elements_text(p.tags) AS tag(value)
+            WHERE a.attempted_at >= ${attemptWindowStart()}
             GROUP BY tag.value
         ),
         pool_tags AS (

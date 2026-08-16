@@ -7,11 +7,16 @@ const SM2_PASS_THRESHOLD = 3;
 const LEVEL_PROMOTE_AVG = 4;
 const LEVEL_DEMOTE_AVG = 2;
 const LEVEL_MIN_ATTEMPTS = 3;
-// Levels are judged on recent evidence only: at most the last N attempts per
-// (tag, difficulty), and nothing older than D days. Stale ratings expiring is
-// what lets a tag demoted long ago be retried at the higher level.
+// Tag levels and tag weakness are both judged on recent evidence only: nothing
+// older than ATTEMPT_WINDOW_DAYS, and for levels at most the last N attempts per
+// (tag, difficulty). Stale ratings expiring is what lets a tag demoted long ago
+// be retried at the higher level.
 const LEVEL_WINDOW_ATTEMPTS = 5;
-const LEVEL_WINDOW_DAYS = 60;
+const ATTEMPT_WINDOW_DAYS = 60;
+
+export function attemptWindowStart(): string {
+    return shiftDay(todayPst(), -ATTEMPT_WINDOW_DAYS);
+}
 const LADDER: Difficulty[] = ["Easy", "Medium", "Hard"];
 const SM2_EASE_BONUS = 0.1;
 const SM2_EASE_PENALTY_SCALE = 0.08;
@@ -72,6 +77,7 @@ export async function getAllTagWeakness(): Promise<TagWeaknessRow[]> {
         FROM attempts a
         JOIN problems p ON p.id = a.problem_id
         CROSS JOIN LATERAL jsonb_array_elements_text(p.tags) AS tag(value)
+        WHERE a.attempted_at >= ${attemptWindowStart()}
         GROUP BY tag.value
         ORDER BY weakness DESC NULLS LAST, total DESC
     `);
@@ -106,7 +112,7 @@ export function computeTagLevel(stats: TagLevelStats): Difficulty {
 }
 
 export async function getAllTagLevels(): Promise<Record<string, Difficulty>> {
-    const since = shiftDay(todayPst(), -LEVEL_WINDOW_DAYS);
+    const since = attemptWindowStart();
     const result = await db.execute<{
         tag: string;
         difficulty: Difficulty;
@@ -155,7 +161,7 @@ export async function getAllTagLevels(): Promise<Record<string, Difficulty>> {
 // ladder over the whole recent record. Without this, an untouched tag would
 // fall back to Easy no matter how strong everything else looks.
 export async function getGlobalLevel(): Promise<Difficulty> {
-    const since = shiftDay(todayPst(), -LEVEL_WINDOW_DAYS);
+    const since = attemptWindowStart();
     const result = await db.execute<{
         difficulty: Difficulty;
         avg_rating: number;

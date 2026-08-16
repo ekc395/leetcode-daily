@@ -40,6 +40,7 @@ export function SettingsScreen() {
   const [savingEmail, setSavingEmail] = React.useState(false);
   const [syncing, setSyncing] = React.useState(false);
   const [resetting, setResetting] = React.useState(false);
+  const [resetArmed, setResetArmed] = React.useState(false);
 
   React.useEffect(() => {
     let cancelled = false;
@@ -116,8 +117,21 @@ export function SettingsScreen() {
     }
   };
 
+  // Two-step: the first click only arms the button, the second one deletes.
+  // Auto-disarms so it can't sit primed and fire on a stray later click.
+  React.useEffect(() => {
+    if (!resetArmed) return;
+    const timer = setTimeout(() => setResetArmed(false), 6000);
+    return () => clearTimeout(timer);
+  }, [resetArmed]);
+
   const resetSchedule = async () => {
-    if (!confirm("Clear all schedule rows? Attempts and problems will be kept.")) return;
+    if (!resetArmed) {
+      setSaveError(null);
+      setResetArmed(true);
+      return;
+    }
+    setResetArmed(false);
     setSaveError(null);
     setResetting(true);
     try {
@@ -388,27 +402,45 @@ export function SettingsScreen() {
         >
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: 13, color: "var(--text)", marginBottom: 2 }}>
-              Reset schedule
+              {resetArmed ? "Are you sure?" : "Reset everything"}
             </div>
             <div style={{ fontSize: 11.5, color: "var(--text-mute)" }}>
-              Clears all schedule rows. Attempts and problems are kept.
+              {resetArmed
+                ? "This permanently deletes every attempt and schedule row. Streak, stats and levels all go back to zero. This cannot be undone."
+                : "Deletes all attempts and schedule rows. Streak, stats and levels start from scratch. Problems are kept."}
             </div>
           </div>
+          {resetArmed && !resetting && (
+            <button
+              onClick={() => setResetArmed(false)}
+              style={{
+                padding: "8px 14px",
+                background: "transparent",
+                border: "1px solid var(--border)",
+                color: "var(--text-mute)",
+                borderRadius: 6,
+                fontSize: 12.5,
+                cursor: "pointer",
+              }}
+            >
+              Cancel
+            </button>
+          )}
           <button
             onClick={resetSchedule}
             disabled={resetting}
             style={{
               padding: "8px 14px",
-              background: "transparent",
-              border: `1px solid color-mix(in oklch, ${TOKENS.bad} 40%, transparent)`,
-              color: TOKENS.bad,
+              background: resetArmed ? TOKENS.bad : "transparent",
+              border: `1px solid color-mix(in oklch, ${TOKENS.bad} ${resetArmed ? "100%" : "40%"}, transparent)`,
+              color: resetArmed ? "var(--bg)" : TOKENS.bad,
               borderRadius: 6,
               fontSize: 12.5,
               cursor: resetting ? "default" : "pointer",
               opacity: resetting ? 0.6 : 1,
             }}
           >
-            {resetting ? "Resetting…" : "Reset"}
+            {resetting ? "Resetting…" : resetArmed ? "Yes, delete everything" : "Reset"}
           </button>
         </div>
       </div>

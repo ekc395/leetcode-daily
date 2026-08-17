@@ -22,20 +22,22 @@ Missing a day has no penalty. The same problem reappears the next day.
 Each rating (`POST /api/attempt`) combines two signals:
 
 - **SM-2 base** — interval grows when `recall_rating >= 3`, resets to 1 day on failure. Ease factor defaults to 2.5 and adjusts with rating.
-- **Topic weakness modifier** — per-tag `weakness_score = failures / total_attempts`. The SM-2 interval is scaled by `(1 - avg_weakness_score)` across the problem's tags, clamped to a 1-day minimum.
+- **Topic weakness modifier** — per-tag `weakness_score = failures / total_attempts`, over your all-time history rather than the recency window used elsewhere. The SM-2 interval is scaled by `(1 - avg_weakness_score)` across the problem's tags, clamped to a 1-day minimum.
 
 Weaker topics resurface faster; stronger ones space out.
 
 ### Adaptive difficulty (new problem selection)
 
-When the queue assigns a new problem from the Neetcode 150, difficulty is derived per-tag from your attempt history on Medium problems in that tag:
+When the queue assigns a new problem from the Neetcode 150, difficulty comes from a
+per-tag level on the `Easy → Medium → Hard` ladder, judged on **recent** attempts
+only — at most the last 5 per (tag, difficulty), and nothing older than 60 days:
 
-| Avg rating on Medium | Assigned difficulty |
-|---|---|
-| ≥ 4 | Hard |
-| ≤ 2 | Easy |
-| Otherwise | Medium |
-| No history | Easy |
+1. Start at the highest difficulty with ≥ 3 attempts in that window, so a stray attempt or two at a level doesn't set it
+2. Promote while that level's average rating is ≥ 4, then demote while it is ≤ 2
+3. A tag with no attempts in the window inherits the **global level** — the same ladder applied to your whole recent record, rather than defaulting to Easy
+
+Old ratings dropping out of the window is what lets a tag demoted long ago be
+retried at the higher level, instead of being locked out of it permanently.
 
 ### Problem pool
 
@@ -82,7 +84,7 @@ A Vercel cron job fires daily at 17:00 UTC (9 AM PST) → `GET /api/cron/daily-r
 | `/api/stats` | GET | Topic weakness scores, streak, upcoming due dates |
 | `/api/settings` | GET / PATCH | Read or update notification settings |
 | `/api/settings/sync` | POST | Trigger a LeetCode sync from the settings page |
-| `/api/settings/reset` | POST | Reset local schedule/attempt data |
+| `/api/settings/reset` | POST | Full wipe — deletes all attempts **and** schedule rows (problems kept) |
 | `/api/sync` | POST | Pull accepted submissions from alfa-leetcode-api, upsert DB |
 | `/api/seed` | POST | One-time seed of the full LeetCode problem bank |
 | `/api/seed/neetcode150` | POST | Flag + tag the Neetcode 150 (incremental; re-run until `totalSeeded: 150`) |

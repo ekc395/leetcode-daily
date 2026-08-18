@@ -27,18 +27,22 @@ export async function runSync(): Promise<{ synced: number; lastSyncAt: Date }> {
     const tomorrowStr = shiftDay(todayPst(), 1);
 
     for (const problemDetail of details) {
+        const tags = problemDetail.topicTags.map(t => t.name);
         const [problem] = await db.insert(problems).values({
             slug: problemDetail.titleSlug,
             title: problemDetail.questionTitle,
             difficulty: problemDetail.difficulty,
-            tags: problemDetail.topicTags.map(t => t.name),
+            tags,
         })
         .onConflictDoUpdate({
             target: problems.slug,
             set: {
                 title: problemDetail.questionTitle,
                 difficulty: problemDetail.difficulty,
-                tags: problemDetail.topicTags.map(t => t.name),
+                // Never blank out tags we already have. Every weakness and level
+                // query joins through jsonb_array_elements_text, so an untagged
+                // problem contributes nothing even when it has attempts.
+                ...(tags.length > 0 && { tags }),
             },
         })
         .returning();

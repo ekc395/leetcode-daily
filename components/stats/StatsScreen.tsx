@@ -6,18 +6,12 @@ import { Card } from "../Card";
 import { Stat } from "../Stat";
 import { TOKENS } from "../tokens";
 import { SectionHeader } from "./SectionHeader";
-import { TagWeaknessBar } from "./TagWeaknessBar";
+import { TagWeaknessBar, TAG_ROW_GRID } from "./TagWeaknessBar";
 import { ActivityHeatmap } from "./ActivityHeatmap";
 import { DifficultyMix } from "./DifficultyMix";
 import { RatingTrend } from "./RatingTrend";
 
-type TagWeakness = {
-  tag: string;
-  failures: number;
-  total: number;
-  weakness: number;
-  level: "Easy" | "Medium" | "Hard";
-};
+import type { TagWeakness } from "@/lib/types";
 
 type StatsResponse = {
   weakness: TagWeakness[];
@@ -31,6 +25,39 @@ type StatsResponse = {
 export function StatsScreen() {
   const [data, setData] = React.useState<StatsResponse | null>(null);
   const [loadError, setLoadError] = React.useState<string | null>(null);
+  const [saveError, setSaveError] = React.useState<string | null>(null);
+  const [pendingStars, setPendingStars] = React.useState<ReadonlySet<string>>(new Set());
+
+  // Functional setData and a single-tag rollback: several stars can be clicked
+  // before the first request lands, and restoring a captured snapshot would
+  // clobber the other in-flight toggles.
+  const setStar = (tag: string, value: boolean) =>
+    setData((d) =>
+      d ? { ...d, weakness: d.weakness.map((w) => (w.tag === tag ? { ...w, starred: value } : w)) } : d,
+    );
+
+  const toggleStar = async (tag: string, next: boolean) => {
+    setStar(tag, next);
+    setSaveError(null);
+    setPendingStars((p) => new Set(p).add(tag));
+    try {
+      const res = await fetch("/api/tags/starred", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tag, starred: next }),
+      });
+      if (!res.ok) throw new Error(`Save returned ${res.status}`);
+    } catch (e) {
+      setStar(tag, !next);
+      setSaveError(e instanceof Error ? e.message : "Save failed");
+    } finally {
+      setPendingStars((p) => {
+        const n = new Set(p);
+        n.delete(tag);
+        return n;
+      });
+    }
+  };
 
   React.useEffect(() => {
     let cancelled = false;
@@ -61,6 +88,7 @@ export function StatsScreen() {
           gap: 20,
         }}
       >
+        {saveError && <div style={{ color: TOKENS.bad, fontSize: 13 }}>{saveError}</div>}
         {loadError ? (
           <Card>
             <div style={{ color: "var(--text-mute)", fontSize: 13 }}>Error: {loadError}</div>
@@ -70,21 +98,36 @@ export function StatsScreen() {
             <div style={{ color: "var(--text-mute)", fontSize: 13 }}>Loading…</div>
           </Card>
         ) : (
-          <StatsContent data={data} />
+          <StatsContent data={data} onToggleStar={toggleStar} pendingStars={pendingStars} />
         )}
       </div>
     </>
   );
 }
 
-function StatsContent({ data }: { data: StatsResponse }) {
-  // Attempted topics first, then the untouched ones — a topic with no data
-  // shouldn't outrank a real result just because its weakness defaults to 0.
+function StatsContent({
+  data,
+  onToggleStar,
+  pendingStars,
+}: {
+  data: StatsResponse;
+  onToggleStar: (tag: string, next: boolean) => void;
+  pendingStars: ReadonlySet<string>;
+}) {
+  // Starred first so the list mirrors the picker; then attempted, then weakest.
+  // A topic with no data shouldn't outrank a real result just because its
+  // weakness defaults to 0.
   const sortedTags = [...data.weakness].sort(
     (a, b) =>
-      Number(a.total === 0) - Number(b.total === 0) || b.weakness - a.weakness,
+      Number(b.starred) - Number(a.starred) ||
+      Number(a.total === 0) - Number(b.total === 0) ||
+      b.weakness - a.weakness,
   );
-  const topTag = sortedTags.find((t) => t.total > 0);
+  // Derived independently of sort order: "weakest" must stay the genuinely
+  // weakest topic, not whichever starred row floated to index 0.
+  const topTag =
+    [...data.weakness].filter((t) => t.total > 0).sort((a, b) => b.weakness - a.weakness)[0] ?? undefined;
+  const starredCount = data.weakness.filter((t) => t.starred).length;
   const activeDays = data.activityGrid.filter((v) => v > 0).length;
   const avgRecallStr = data.avgRecall != null ? data.avgRecall.toFixed(1) : "—";
   const trendMin = data.recallTrend.length ? Math.min(...data.recallTrend) : null;
@@ -131,7 +174,7 @@ function StatsContent({ data }: { data: StatsResponse }) {
       <Card>
         <SectionHeader
           title="Topic weakness"
-          sub="Failures (rating < 3) divided by total attempts per tag. Pulls reviews forward when high."
+          sub="Failures (rating < 3) divided by total attempts per tag. Pulls reviews forward when high. Starred topics are picked first for new problems."
           right={
             <span
               style={{
@@ -142,7 +185,7 @@ function StatsContent({ data }: { data: StatsResponse }) {
                 textTransform: "uppercase",
               }}
             >
-              {sortedTags.length} tags
+              {starredCount} starred · {sortedTags.length} tags
             </span>
           }
         />
@@ -155,7 +198,7 @@ function StatsContent({ data }: { data: StatsResponse }) {
             <div
               style={{
                 display: "grid",
-                gridTemplateColumns: "240px 1fr 80px",
+                gridTemplateColumns: TAG_ROW_GRID,
                 gap: 18,
                 padding: "0 0 8px",
                 fontSize: 10,
@@ -166,12 +209,19 @@ function StatsContent({ data }: { data: StatsResponse }) {
                 borderBottom: "1px solid var(--border)",
               }}
             >
+              <span />
               <span>Tag</span>
               <span>Miss rate</span>
               <span style={{ textAlign: "right" }}>%</span>
             </div>
-            {sortedTags.map((tw, i) => (
-              <TagWeaknessBar key={tw.tag} {...tw} isMax={i === 0} />
+            {sortedTags.map((tw) => (
+              <TagWeaknessBar
+                key={tw.tag}
+                {...tw}
+                isMax={tw.tag === topTag?.tag}
+                onToggleStar={onToggleStar}
+                pending={pendingStars.has(tw.tag)}
+              />
             ))}
           </div>
         )}

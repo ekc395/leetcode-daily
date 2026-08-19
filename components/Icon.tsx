@@ -2,7 +2,7 @@ import * as React from "react";
 
 type IconName =
   | "today" | "stats" | "list" | "settings" | "flame"
-  | "arrowUpRight" | "check" | "clock" | "bolt";
+  | "arrowUpRight" | "check" | "clock" | "bolt" | "star";
 
 const PATHS: Record<IconName, React.ReactNode> = {
   today: <><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></>,
@@ -14,15 +14,24 @@ const PATHS: Record<IconName, React.ReactNode> = {
   check: <path d="M5 12l5 5L20 7"/>,
   clock: <><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></>,
   bolt: <path d="M13 2L3 14h7l-1 8 10-12h-7l1-8z"/>,
+  star: <path d="M12 3.2l2.65 5.5 6 .88-4.35 4.3 1.03 6.02L12 17.06l-5.33 2.84 1.03-6.02L3.35 9.58l6-.88L12 3.2z"/>,
 };
 
-export function Icon({ name, size = 16 }: { name: IconName; size?: number }) {
+export function Icon({
+  name,
+  size = 16,
+  filled = false,
+}: {
+  name: IconName;
+  size?: number;
+  filled?: boolean;
+}) {
   return (
     <svg
       width={size}
       height={size}
       viewBox="0 0 24 24"
-      fill="none"
+      fill={filled ? "currentColor" : "none"}
       stroke="currentColor"
       strokeWidth={1.6}
       strokeLinecap="round"

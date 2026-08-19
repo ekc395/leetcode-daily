@@ -39,6 +39,19 @@ only — at most the last 5 per (tag, difficulty), and nothing older than 60 day
 Old ratings dropping out of the window is what lets a tag demoted long ago be
 retried at the higher level, instead of being locked out of it permanently.
 
+### Starred topics
+
+Star a topic in the Stats list to have it picked first for new problems. Unstarred
+topics stay in the running as a fallback, so you still see them once the starred
+ones have nothing left.
+
+Because a topic resolves to a single difficulty, a starred topic with nothing left
+at that difficulty would otherwise be skipped silently. For starred topics only,
+the level becomes a preference rather than a filter — the queue tries the level
+first, then steps down, then up. So starring a topic can serve you an off-level
+problem; that is the trade for asking for the topic by name. Unstarred selection
+keeps strict level matching.
+
 ### Problem pool
 
 Two kinds of problems coexist in the `problems` table:
@@ -85,6 +98,7 @@ A Vercel cron job fires daily at 17:00 UTC (9 AM PST) → `GET /api/cron/daily-r
 | `/api/settings` | GET / PATCH | Read or update notification settings |
 | `/api/settings/sync` | POST | Trigger a LeetCode sync from the settings page |
 | `/api/settings/reset` | POST | Full wipe — deletes all attempts **and** schedule rows (problems kept) |
+| `/api/tags/starred` | PATCH | Star or unstar one topic (`{ tag, starred }`) |
 | `/api/sync` | POST | Pull accepted submissions from alfa-leetcode-api, upsert DB |
 | `/api/seed` | POST | One-time seed of the full LeetCode problem bank |
 | `/api/seed/neetcode150` | POST | Flag + tag the Neetcode 150 (incremental; re-run until `totalSeeded: 150`) |
@@ -94,10 +108,11 @@ A Vercel cron job fires daily at 17:00 UTC (9 AM PST) → `GET /api/cron/daily-r
 
 | Table | Key fields |
 |---|---|
-| `problems` | `id`, `slug`, `title`, `difficulty`, `tags` (jsonb) |
+| `problems` | `id`, `slug`, `title`, `difficulty`, `tags` (jsonb), `in_neetcode150` |
 | `attempts` | `id`, `problem_id`, `attempted_at`, `recall_rating` (1–5), `solved` |
 | `schedule` | `problem_id`, `next_review_at`, `interval_days`, `ease_factor` |
 | `settings` | `id`, `notifications_enabled`, `notification_email`, `last_sync_at` |
+| `starred_tags` | `tag` (PK), `created_at` — presence of a row means the topic is starred |
 
 ## Environment variables
 

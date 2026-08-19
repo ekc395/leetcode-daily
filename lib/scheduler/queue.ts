@@ -9,6 +9,17 @@ export const NEW_PROBLEM_EASE_FACTOR = 2.5;
 export const NEW_PROBLEM_INTERVAL_DAYS = 0;
 const SM2_PASS_THRESHOLD = 3;
 
+// A star is an explicit instruction to prefer the topic, so for starred tags the
+// computed level becomes a preference rather than a filter. Step down before up:
+// an easier problem in a requested topic beats an unexpectedly harder one.
+const DIFFICULTY_NEARNESS: Record<Difficulty, Difficulty[]> = {
+    Easy: ["Easy", "Medium", "Hard"],
+    Medium: ["Medium", "Easy", "Hard"],
+    Hard: ["Hard", "Medium", "Easy"],
+};
+
+type RankedTag = { tag: string; starred: boolean };
+
 export type QueueProblem = {
     id: number;
     slug: string;
@@ -54,8 +65,8 @@ async function findDueProblem(today: string): Promise<QueueProblem | null> {
     return rows[0] ?? null;
 }
 
-async function getTagWeaknessRanking(): Promise<string[]> {
-    const result = await db.execute<{ tag: string }>(sql`
+async function getTagWeaknessRanking(): Promise<RankedTag[]> {
+    const result = await db.execute<{ tag: string; starred: boolean }>(sql`
         WITH attempt_stats AS (
             SELECT
                 tag.value AS tag,
@@ -73,12 +84,13 @@ async function getTagWeaknessRanking(): Promise<string[]> {
             CROSS JOIN LATERAL jsonb_array_elements_text(p.tags) AS tag(value)
             WHERE p.in_neetcode150 = true
         )
-        SELECT pt.tag
+        SELECT pt.tag, (st.tag IS NOT NULL) AS starred
         FROM pool_tags pt
         LEFT JOIN attempt_stats s ON s.tag = pt.tag
-        ORDER BY (s.tag IS NULL) DESC, s.weakness DESC NULLS LAST
+        LEFT JOIN starred_tags st ON st.tag = pt.tag
+        ORDER BY (st.tag IS NOT NULL) DESC, (s.tag IS NULL) DESC, s.weakness DESC NULLS LAST, pt.tag
     `);
-    return result.rows.map(r => r.tag);
+    return result.rows.map(r => ({ tag: r.tag, starred: Boolean(r.starred) }));
 }
 
 async function pickUnseededByTagAndDifficulty(
@@ -127,10 +139,15 @@ async function assignNewProblem(): Promise<QueueProblem | null> {
     const ranking = await getTagWeaknessRanking();
     const [levels, globalLevel] = await Promise.all([getAllTagLevels(), getGlobalLevel()]);
 
-    for (const tag of ranking) {
-        const difficulty = levels[tag] ?? globalLevel;
-        const picked = await pickUnseededByTagAndDifficulty(tag, difficulty);
-        if (picked) return picked;
+    for (const { tag, starred } of ranking) {
+        const level = levels[tag] ?? globalLevel;
+        // The retry has to happen inside this iteration: a second pass over the
+        // whole ranking would let an unstarred exact-level match win before the
+        // starred tag got its turn.
+        for (const difficulty of starred ? DIFFICULTY_NEARNESS[level] : [level]) {
+            const picked = await pickUnseededByTagAndDifficulty(tag, difficulty);
+            if (picked) return picked;
+        }
     }
 
     return pickFallbackEasy();

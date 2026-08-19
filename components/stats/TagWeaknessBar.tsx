@@ -17,8 +17,12 @@ export function TagWeaknessBar({
   level: Difficulty;
   isMax: boolean;
 }) {
-  const c =
-    weakness >= 0.4 ? TOKENS.bad : weakness >= 0.25 ? TOKENS.medium : TOKENS.ok;
+  // No attempts in the window is absence of evidence, not a clean record — it
+  // must not render as a 0% miss rate alongside genuinely strong topics.
+  const unattempted = total === 0;
+  const c = unattempted
+    ? "var(--text-dim)"
+    : weakness >= 0.4 ? TOKENS.bad : weakness >= 0.25 ? TOKENS.medium : TOKENS.ok;
   return (
     <div
       style={{
@@ -86,9 +90,11 @@ export function TagWeaknessBar({
             fontSize: 11,
             fontFamily: "var(--font-mono)",
             color: weakness > 0.5 ? "var(--bg)" : "var(--text-dim)",
+            fontStyle: unattempted ? "italic" : "normal",
+            opacity: unattempted ? 0.65 : 1,
           }}
         >
-          {failures} of {total}
+          {unattempted ? "not attempted" : `${failures} of ${total}`}
         </div>
       </div>
       <div
@@ -99,7 +105,7 @@ export function TagWeaknessBar({
           color: c,
         }}
       >
-        {Math.round(weakness * 100)}%
+        {unattempted ? "—" : `${Math.round(weakness * 100)}%`}
       </div>
     </div>
   );

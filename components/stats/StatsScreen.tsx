@@ -78,8 +78,13 @@ export function StatsScreen() {
 }
 
 function StatsContent({ data }: { data: StatsResponse }) {
-  const sortedTags = [...data.weakness].sort((a, b) => b.weakness - a.weakness);
-  const topTag = sortedTags[0];
+  // Attempted topics first, then the untouched ones — a topic with no data
+  // shouldn't outrank a real result just because its weakness defaults to 0.
+  const sortedTags = [...data.weakness].sort(
+    (a, b) =>
+      Number(a.total === 0) - Number(b.total === 0) || b.weakness - a.weakness,
+  );
+  const topTag = sortedTags.find((t) => t.total > 0);
   const activeDays = data.activityGrid.filter((v) => v > 0).length;
   const avgRecallStr = data.avgRecall != null ? data.avgRecall.toFixed(1) : "—";
   const trendMin = data.recallTrend.length ? Math.min(...data.recallTrend) : null;

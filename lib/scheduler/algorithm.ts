@@ -68,18 +68,31 @@ export async function getAllTagWeakness(): Promise<TagWeaknessRow[]> {
         total: number;
         weakness: number;
     }>(sql`
+        WITH stats AS (
+            SELECT
+                tag.value AS tag,
+                COUNT(*) FILTER (WHERE a.recall_rating < ${SM2_PASS_THRESHOLD})::int AS failures,
+                COUNT(*)::int AS total
+            FROM attempts a
+            JOIN problems p ON p.id = a.problem_id
+            CROSS JOIN LATERAL jsonb_array_elements_text(p.tags) AS tag(value)
+            WHERE a.attempted_at >= ${attemptWindowStart()}
+            GROUP BY tag.value
+        ),
+        pool_tags AS (
+            SELECT DISTINCT tag.value AS tag
+            FROM problems p
+            CROSS JOIN LATERAL jsonb_array_elements_text(p.tags) AS tag(value)
+            WHERE p.in_neetcode150 = true
+        )
         SELECT
-            tag.value AS tag,
-            COUNT(*) FILTER (WHERE a.recall_rating < ${SM2_PASS_THRESHOLD})::int AS failures,
-            COUNT(*)::int AS total,
-            (COUNT(*) FILTER (WHERE a.recall_rating < ${SM2_PASS_THRESHOLD}))::float
-                / NULLIF(COUNT(*), 0)::float AS weakness
-        FROM attempts a
-        JOIN problems p ON p.id = a.problem_id
-        CROSS JOIN LATERAL jsonb_array_elements_text(p.tags) AS tag(value)
-        WHERE a.attempted_at >= ${attemptWindowStart()}
-        GROUP BY tag.value
-        ORDER BY weakness DESC NULLS LAST, total DESC
+            pt.tag,
+            COALESCE(s.failures, 0) AS failures,
+            COALESCE(s.total, 0) AS total,
+            COALESCE(s.failures::float / NULLIF(s.total, 0)::float, 0) AS weakness
+        FROM pool_tags pt
+        LEFT JOIN stats s ON s.tag = pt.tag
+        ORDER BY (COALESCE(s.total, 0) = 0), weakness DESC, total DESC, pt.tag
     `);
     return result.rows.map(r => ({
         tag: r.tag,

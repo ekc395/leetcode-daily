@@ -59,6 +59,10 @@ export interface TagWeaknessRow {
     failures: number;
     total: number;
     weakness: number;
+    starred: boolean;
+    // Unseeded pool problems left in this topic at ANY difficulty. Zero means no
+    // amount of starring can surface it.
+    available: number;
 }
 
 export async function getAllTagWeakness(): Promise<TagWeaknessRow[]> {
@@ -67,6 +71,8 @@ export async function getAllTagWeakness(): Promise<TagWeaknessRow[]> {
         failures: number;
         total: number;
         weakness: number;
+        starred: boolean;
+        available: number;
     }>(sql`
         WITH stats AS (
             SELECT
@@ -84,14 +90,28 @@ export async function getAllTagWeakness(): Promise<TagWeaknessRow[]> {
             FROM problems p
             CROSS JOIN LATERAL jsonb_array_elements_text(p.tags) AS tag(value)
             WHERE p.in_neetcode150 = true
+        ),
+        free_pool AS (
+            -- Same predicate as pickUnseededByTagAndDifficulty, so the count can
+            -- never claim a topic is pickable when the queue disagrees.
+            SELECT tag.value AS tag, COUNT(*)::int AS available
+            FROM problems p
+            LEFT JOIN schedule sc ON sc.problem_id = p.id
+            CROSS JOIN LATERAL jsonb_array_elements_text(p.tags) AS tag(value)
+            WHERE p.in_neetcode150 = true AND sc.problem_id IS NULL
+            GROUP BY tag.value
         )
         SELECT
             pt.tag,
             COALESCE(s.failures, 0) AS failures,
             COALESCE(s.total, 0) AS total,
-            COALESCE(s.failures::float / NULLIF(s.total, 0)::float, 0) AS weakness
+            COALESCE(s.failures::float / NULLIF(s.total, 0)::float, 0) AS weakness,
+            (st.tag IS NOT NULL) AS starred,
+            COALESCE(fp.available, 0) AS available
         FROM pool_tags pt
         LEFT JOIN stats s ON s.tag = pt.tag
+        LEFT JOIN starred_tags st ON st.tag = pt.tag
+        LEFT JOIN free_pool fp ON fp.tag = pt.tag
         ORDER BY (COALESCE(s.total, 0) = 0), weakness DESC, total DESC, pt.tag
     `);
     return result.rows.map(r => ({
@@ -99,6 +119,8 @@ export async function getAllTagWeakness(): Promise<TagWeaknessRow[]> {
         failures: Number(r.failures),
         total: Number(r.total),
         weakness: Number(r.weakness ?? 0),
+        starred: Boolean(r.starred),
+        available: Number(r.available ?? 0),
     }));
 }
 

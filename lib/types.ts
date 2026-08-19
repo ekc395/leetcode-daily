@@ -21,6 +21,8 @@ export interface TagWeakness {
   total: number;
   weakness: number;
   level: Difficulty;
+  starred: boolean;
+  available: number;
 }
 
 export interface AttemptSummary {

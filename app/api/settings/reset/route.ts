@@ -5,6 +5,8 @@ import { attempts, schedule } from "@/lib/db/schema";
 // attempts nothing can reach: the due-review path joins schedule, so those
 // rows could never be reviewed again, yet they'd keep feeding tag weakness
 // and levels forever.
+// starred_tags is deliberately left alone: stars are a preference, not progress,
+// and unlike attempts they cannot be orphaned by clearing the schedule.
 export async function POST() {
     try {
         await db.delete(attempts);

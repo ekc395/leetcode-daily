@@ -36,6 +36,13 @@
       "when": 1780720069882,
       "tag": "0004_luxuriant_bloodstorm",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1787112240593,
+      "tag": "0005_organic_shooting_star",
+      "breakpoints": true
     }
   ]
 }

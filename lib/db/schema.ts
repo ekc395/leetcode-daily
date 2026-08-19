@@ -39,3 +39,11 @@ export const settings = pgTable("settings", {
   notificationEmail: text("notification_email"),
   lastSyncAt: timestamp("last_sync_at"),
 });
+
+// Topics the user has pinned. Presence of a row is the whole state. Tags are raw
+// LeetCode topicTags[].name strings with no FK target, matched by value against
+// problems.tags — a tag that leaves the pool leaves a harmless orphan row.
+export const starredTags = pgTable("starred_tags", {
+  tag: text("tag").primaryKey(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
